@@ -80,11 +80,9 @@ from pathlib import Path
 # 🔥 Get torch CUDA/cuDNN DLL path
 torch_lib = Path(torch.__file__).parent / "lib"
 
-if torch_lib.exists():
-    # ADD TO PATH (this is what Paddle needs)
+if torch_lib.exists() and os.name == "nt":
+    # Windows only — add torch DLL path for Paddle CUDA visibility
     os.environ["PATH"] = str(torch_lib) + ";" + os.environ["PATH"]
-
-    # ALSO keep for safety
     os.add_dll_directory(str(torch_lib))
 
 print("✅ Torch DLL path added:", torch_lib)
