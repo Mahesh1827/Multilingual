@@ -165,8 +165,6 @@ def load_faiss_index():
 
 def search_faiss(query: str, top_k: int = 5):
 
-    global _bm25, _bm25_corpus
-
     vectorstore, _ = load_faiss_index()
 
     # BGE query instruction
