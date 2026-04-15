@@ -1,100 +1,88 @@
 """
 Shared fixtures for the Tirumala AI Assistant test suite.
 
-Design principles:
-  - ALL heavy model imports (torch, paddle, sentence-transformers) are mocked
-    at the module level so tests run on the GitHub CI runner (CPU-only, no GPU).
-  - The FastAPI TestClient is created once per session for speed.
-  - Environment variables are set before any project module is imported.
+Key design decisions:
+  - Heavy ML modules (torch, paddle, transformers) are stubbed in sys.modules
+    BEFORE any project code is imported, so CI runners need no GPU.
+  - `client` is function-scoped so each test gets a fresh TestClient with
+    its own lifespan, making per-test patching work correctly.
+  - Patch target is `server.run_query` / `server.check_ollama_health`
+    because server.py uses `from ... import` (binds names in server's namespace).
 """
 
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
 
 # ──────────────────────────────────────────────────────────────
-# Stub out heavy imports BEFORE any project code is loaded.
-# This prevents torch/paddle/paddleocr from being imported during
-# collection, which would crash on a CPU-only CI runner.
+# Stub heavy modules BEFORE any project import
 # ──────────────────────────────────────────────────────────────
 
-def _make_torch_stub():
-    """Return a minimal torch stub that satisfies all import-time usages."""
-    torch = MagicMock(name="torch")
-    torch.cuda.is_available.return_value = False
-    torch.version.cuda = "N/A"
-    torch.__file__ = "/stub/torch/__init__.py"
-    return torch
+def _torch_stub():
+    t = MagicMock(name="torch")
+    t.cuda.is_available.return_value = False
+    t.version.cuda = "N/A"
+    t.__file__ = "/stub/torch/__init__.py"
+    return t
 
 
-# Patch heavy modules before any project import
-_HEAVY_MODULES = [
+_HEAVY = [
     "torch", "torchvision", "torchaudio",
-    "paddlepaddle", "paddle", "paddleocr",
+    "paddle", "paddlepaddle", "paddleocr",
     "transformers", "accelerate", "sentencepiece",
     "sentence_transformers",
     "faiss",
     "cv2",
     "pdf2image",
 ]
+for _m in _HEAVY:
+    if _m not in sys.modules:
+        sys.modules[_m] = MagicMock(name=_m)
+sys.modules["torch"] = _torch_stub()
 
-for _mod in _HEAVY_MODULES:
-    if _mod not in sys.modules:
-        sys.modules[_mod] = MagicMock(name=_mod)
+# ──────────────────────────────────────────────────────────────
+# Inject test-safe env vars before dotenv runs
+# ──────────────────────────────────────────────────────────────
 
-# Provide a slightly more realistic torch stub
-sys.modules["torch"] = _make_torch_stub()
+os.environ.setdefault("HF_TOKEN",        "hf_test_ci")
+os.environ.setdefault("TAVILY_API_KEY",  "tvly_test_ci")
+os.environ.setdefault("GROQ_API_KEY",    "gsk_test_ci")
+os.environ.setdefault("OLLAMA_BASE_URL", "http://localhost:11434")
+
+# ──────────────────────────────────────────────────────────────
+# Default pipeline result used by most tests
+# ──────────────────────────────────────────────────────────────
+
+DEFAULT_RESULT = {
+    "query_original": "What are the darshan timings?",
+    "query_english":  "What are the darshan timings?",
+    "language":       "en",
+    "agent_route":    "rag",
+    "answer":         "Darshan timings are from 2 AM to 11 PM.",
+    "sources":        ["doc1.pdf", "doc2.pdf"],
+    "domains":        ["pilgrimage_seva"],
+    "verification":   {"grounded": True, "score": 0.85},
+    "suggestions":    ["How to book tickets?", "What is the laddu price?"],
+}
 
 
 # ──────────────────────────────────────────────────────────────
-# Environment variables — set before any dotenv load
+# Function-scoped client — fresh per test, correct patch target
 # ──────────────────────────────────────────────────────────────
 
-@pytest.fixture(autouse=True, scope="session")
-def set_env_vars():
-    """Inject test-safe env vars for the whole session."""
-    env_overrides = {
-        "HF_TOKEN": "hf_test_token_ci",
-        "TAVILY_API_KEY": "tvly_test_key_ci",
-        "GROQ_API_KEY": "gsk_test_key_ci",
-        "OLLAMA_BASE_URL": "http://localhost:11434",
-        "OLLAMA_MODEL": "qwen2.5:7b",
-    }
-    with patch.dict(os.environ, env_overrides):
-        yield
+import pytest  # noqa: E402  (after sys.modules stubs)
 
 
-# ──────────────────────────────────────────────────────────────
-# FastAPI TestClient — session-scoped (one startup per test run)
-# ──────────────────────────────────────────────────────────────
-
-@pytest.fixture(scope="session")
-def app():
-    """Return the FastAPI app with mocked pipeline dependencies."""
-    # Mock the pipeline and health-check so server.py can be imported
-    with patch("query.agents.pipeline.run_query") as mock_run, \
-         patch("query.agents.knowledge_rag_agent.check_ollama_health", return_value=True):
-
-        mock_run.return_value = {
-            "query_original": "test query",
-            "query_english": "test query",
-            "language": "en",
-            "agent_route": "rag",
-            "answer": "This is a mock answer for testing.",
-            "sources": ["doc1.pdf", "doc2.pdf"],
-            "domains": ["pilgrimage_seva"],
-            "verification": {"grounded": True, "score": 0.85},
-            "suggestions": ["Related question 1?", "Related question 2?"],
-        }
-
-        from server import app as fastapi_app
-        return fastapi_app
-
-
-@pytest.fixture(scope="session")
-def client(app):
-    """Return a synchronous TestClient for the FastAPI app."""
-    from fastapi.testclient import TestClient
-    with TestClient(app, raise_server_exceptions=False) as c:
-        yield c
+@pytest.fixture()
+def client():
+    """
+    Return a TestClient with run_query and check_ollama_health mocked.
+    Function-scoped so per-test patches on server.run_query work correctly.
+    """
+    # Patch names in server's own namespace (where `from X import Y` bound them)
+    with patch("server.run_query", return_value=DEFAULT_RESULT), \
+         patch("server.check_ollama_health", return_value=True):
+        from fastapi.testclient import TestClient
+        from server import app
+        with TestClient(app, raise_server_exceptions=False) as c:
+            yield c
