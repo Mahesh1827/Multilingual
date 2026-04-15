@@ -1,59 +1,35 @@
-# ══════════════════════════════════════════════════════════════
-# Tirumala AI Assistant — GitHub Actions CI/CD Pipeline
-#
-# Triggers:
-#   CI  — every push to any branch + every pull request
-#   CD  — only when code is pushed/merged to main
-#
-# Required GitHub Secrets (Settings → Secrets → Actions):
-#   DOCKERHUB_USERNAME   — DockerHub account name
-#   DOCKERHUB_TOKEN      — DockerHub access token (not password)
-#   SSH_HOST             — Deployment server IP or hostname
-#   SSH_USER             — SSH login user (e.g. ubuntu)
-#   SSH_PRIVATE_KEY      — Full private key (-----BEGIN OPENSSH PRIVATE KEY-----)
-#   SSH_PORT             — SSH port (usually 22)
-#   HF_TOKEN             — HuggingFace read token
-#   TAVILY_API_KEY       — Tavily search API key
-#   GROQ_API_KEY         — Groq LLM API key
-# ══════════════════════════════════════════════════════════════
-
-name: CI / CD
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["**"]          # CI runs on every branch push
+    branches:
+      - "**"
   pull_request:
-    branches: ["main"]         # CI runs on PRs targeting main
+    branches:
+      - main
 
-# Cancel in-progress runs on the same branch to save runner minutes
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# ──────────────────────────────────────────────────────────────
-# JOB 1 — Continuous Integration
-# ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------
+# JOB 1: Lint and Test (runs on every push / PR)
+# ---------------------------------------------------------------
 jobs:
   ci:
-    name: Lint & Test
+    name: Lint and Test
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-
-      # ── 1. Checkout ──────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Python setup ──────────────────────────────────
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ── 3. Cache pip packages ────────────────────────────
-      # Key includes requirements hash so cache is invalidated
-      # whenever requirements-ci.txt changes.
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -62,23 +38,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # ── 4. Install CPU-only PyTorch (separate layer for caching) ──
-      # Installing torch before the rest prevents pip from pulling
-      # the CUDA wheel when processing requirements-ci.txt.
       - name: Install CPU-only PyTorch
         run: |
           pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      # ── 5. Install project dependencies ──────────────────
       - name: Install CI dependencies
         run: pip install -r requirements-ci.txt
 
-      # ── 6. Lint with flake8 ──────────────────────────────
-      # Two passes:
-      #   a) Stop the build on critical syntax/undefined errors
-      #   b) Treat all other violations as warnings (exit 0)
-      - name: Lint — critical errors (stop build)
+      - name: Lint - critical errors
         run: |
           flake8 . \
             --count \
@@ -86,7 +54,7 @@ jobs:
             --show-source \
             --statistics
 
-      - name: Lint — style warnings (informational only)
+      - name: Lint - style warnings
         run: |
           flake8 . \
             --count \
@@ -94,15 +62,11 @@ jobs:
             --max-line-length=120 \
             --statistics
 
-      # ── 7. Run test suite with coverage ──────────────────
-      - name: Run pytest with coverage
+      - name: Run tests with coverage
         env:
-          # Inject dummy secrets so dotenv loads without error
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          # Prevent _env_setup.py from loading .env file
-          # (it won't exist in the CI runner workspace)
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           pytest tests/ \
@@ -113,8 +77,7 @@ jobs:
             --cov-config=.coveragerc \
             -v
 
-      # ── 8. Upload coverage report ────────────────────────
-      - name: Upload coverage to GitHub artifacts
+      - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -122,41 +85,29 @@ jobs:
           path: coverage.xml
           retention-days: 14
 
-
-  # ──────────────────────────────────────────────────────────────
-  # JOB 2 — Build & Push Docker image (CD)
-  # Only runs when the CI job passes AND we are on the main branch
-  # ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------
+# JOB 2: Build and Push Docker image (main branch only)
+# ---------------------------------------------------------------
   docker-build-push:
-    name: Build & Push Docker Image
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: ci
     timeout-minutes: 45
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-
-      # ── 1. Checkout ──────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Docker layer cache ────────────────────────────
-      # Caches the Docker build layers between runs so pip install
-      # layers are skipped when requirements.txt hasn't changed.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ── 3. Log in to DockerHub ────────────────────────────
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ── 4. Extract metadata for image tags ───────────────
-      # Produces tags like:
-      #   mahesh1827/tirumala-ai:latest
-      #   mahesh1827/tirumala-ai:sha-a1b2c3d
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -166,7 +117,6 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
 
-      # ── 5. Build and push ─────────────────────────────────
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -175,18 +125,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Use GitHub Actions cache for Docker layers
           cache-from: type=gha
-          cache-to:   type=gha,mode=max
-          build-args: |
-            BUILD_DATE=${{ github.event.repository.updated_at }}
-            GIT_SHA=${{ github.sha }}
+          cache-to: type=gha,mode=max
 
-
-  # ──────────────────────────────────────────────────────────────
-  # JOB 3 — Deploy to remote server via SSH
-  # Only runs after the image is successfully pushed to DockerHub
-  # ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------
+# JOB 3: Deploy via SSH (main branch only, after Docker push)
+# ---------------------------------------------------------------
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -194,28 +138,21 @@ jobs:
     timeout-minutes: 20
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
-    # Protect the production environment — requires a reviewer approval
-    # (configure this in Settings → Environments → production)
     environment:
       name: production
       url: http://${{ secrets.SSH_HOST }}:8000/health
 
     steps:
-
-      # ── 1. Deploy via SSH ─────────────────────────────────
-      # The remote server must have Docker installed and the
-      # .env file placed at ~/tirumala-ai/.env before first deploy.
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:        ${{ secrets.SSH_HOST }}
-          username:    ${{ secrets.SSH_USER }}
-          key:         ${{ secrets.SSH_PRIVATE_KEY }}
-          port:        ${{ secrets.SSH_PORT }}
-          timeout:     300s
-          # Script runs on the remote Ubuntu server
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          timeout: 300s
           script: |
-            set -e   # fail fast on any error
+            set -e
 
             DEPLOY_DIR="$HOME/tirumala-ai"
             IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/tirumala-ai:latest"
@@ -223,7 +160,7 @@ jobs:
             echo "=== [1/6] Pulling latest image ==="
             docker pull "$IMAGE"
 
-            echo "=== [2/6] Stopping old container (if running) ==="
+            echo "=== [2/6] Stopping old container ==="
             docker stop tirumala-api 2>/dev/null || true
             docker rm   tirumala-api 2>/dev/null || true
 
@@ -232,7 +169,7 @@ jobs:
             docker volume create tirumala_vector_store 2>/dev/null || true
             docker volume create tirumala_ollama_data  2>/dev/null || true
 
-            echo "=== [4/6] Starting Ollama (if not already running) ==="
+            echo "=== [4/6] Starting Ollama ==="
             docker start tirumala-ollama 2>/dev/null || \
             docker run -d \
               --name tirumala-ollama \
@@ -252,32 +189,27 @@ jobs:
               -e HF_HUB_CACHE=/app/.cache/model_cache/huggingface/hub \
               -e TRANSFORMERS_CACHE=/app/.cache/model_cache/huggingface/hub \
               -e TORCH_HOME=/app/.cache/model_cache/torch \
-              -e PPOCR_HOME=/app/.cache/model_cache/paddleocr \
-              -e PADDLE_HOME=/app/.cache/model_cache/paddle \
               -v tirumala_model_cache:/app/.cache/model_cache \
               -v tirumala_vector_store:/app/vector_store \
               --link tirumala-ollama:tirumala-ollama \
               "$IMAGE"
 
-            echo "=== [6/6] Health check (wait up to 90s) ==="
+            echo "=== [6/6] Health check ==="
             for i in $(seq 1 18); do
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-                       http://localhost:8000/health 2>/dev/null || echo "000")
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health 2>/dev/null || echo "000")
               if [ "$STATUS" = "200" ]; then
                 echo "Health check passed (attempt $i)"
                 break
               fi
-              echo "Waiting for API to start... attempt $i/18 (HTTP $STATUS)"
+              echo "Waiting... attempt $i/18 (HTTP $STATUS)"
               sleep 5
             done
 
             if [ "$STATUS" != "200" ]; then
-              echo "ERROR: Health check failed after 90s"
+              echo "ERROR: Health check failed"
               docker logs tirumala-api --tail 50
               exit 1
             fi
 
-            echo "=== Deployment complete. API is healthy. ==="
-
-            # Clean up dangling images to save disk space
+            echo "=== Deployment complete ==="
             docker image prune -f
