@@ -48,16 +48,14 @@ LABEL version="1.0.0"
 
 # System runtime libraries required by PaddleOCR and OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        # OpenCV / PaddleOCR shared libraries
         libglib2.0-0 \
         libgl1-mesa-glx \
+        libgl1 \
         libgomp1 \
         libsm6 \
         libxext6 \
-        libxrender-dev \
-        # Poppler for pdf2image
+        libxrender1 \
         poppler-utils \
-        # Fonts for rendered PDFs
         fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
