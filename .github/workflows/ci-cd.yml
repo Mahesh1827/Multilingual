@@ -1,26 +1,14 @@
-name: CI/CD Pipeline
+name: CI-CD Pipeline
 
 on:
   push:
-    branches:
-      - "**"
   pull_request:
-    branches:
-      - main
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-# ---------------------------------------------------------------
-# JOB 1: Lint and Test (runs on every push / PR)
-# ---------------------------------------------------------------
 jobs:
   ci:
     name: Lint and Test
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -85,16 +73,12 @@ jobs:
           path: coverage.xml
           retention-days: 14
 
-# ---------------------------------------------------------------
-# JOB 2: Build and Push Docker image (main branch only)
-# ---------------------------------------------------------------
   docker-build-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: ci
     timeout-minutes: 45
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -128,20 +112,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-# ---------------------------------------------------------------
-# JOB 3: Deploy via SSH (main branch only, after Docker push)
-# ---------------------------------------------------------------
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: docker-build-push
     timeout-minutes: 20
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     environment:
       name: production
       url: http://${{ secrets.SSH_HOST }}:8000/health
-
     steps:
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.0.3
@@ -153,23 +132,15 @@ jobs:
           timeout: 300s
           script: |
             set -e
-
             DEPLOY_DIR="$HOME/tirumala-ai"
             IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/tirumala-ai:latest"
-
-            echo "=== [1/6] Pulling latest image ==="
+            echo "Pulling latest image..."
             docker pull "$IMAGE"
-
-            echo "=== [2/6] Stopping old container ==="
             docker stop tirumala-api 2>/dev/null || true
             docker rm   tirumala-api 2>/dev/null || true
-
-            echo "=== [3/6] Ensuring named volumes exist ==="
-            docker volume create tirumala_model_cache  2>/dev/null || true
+            docker volume create tirumala_model_cache 2>/dev/null || true
             docker volume create tirumala_vector_store 2>/dev/null || true
             docker volume create tirumala_ollama_data  2>/dev/null || true
-
-            echo "=== [4/6] Starting Ollama ==="
             docker start tirumala-ollama 2>/dev/null || \
             docker run -d \
               --name tirumala-ollama \
@@ -177,8 +148,6 @@ jobs:
               -p 11434:11434 \
               -v tirumala_ollama_data:/root/.ollama \
               ollama/ollama:latest
-
-            echo "=== [5/6] Starting API container ==="
             docker run -d \
               --name tirumala-api \
               --restart unless-stopped \
@@ -193,23 +162,10 @@ jobs:
               -v tirumala_vector_store:/app/vector_store \
               --link tirumala-ollama:tirumala-ollama \
               "$IMAGE"
-
-            echo "=== [6/6] Health check ==="
             for i in $(seq 1 18); do
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health 2>/dev/null || echo "000")
-              if [ "$STATUS" = "200" ]; then
-                echo "Health check passed (attempt $i)"
-                break
-              fi
-              echo "Waiting... attempt $i/18 (HTTP $STATUS)"
-              sleep 5
+              if [ "$STATUS" = "200" ]; then echo "Health OK"; break; fi
+              echo "Waiting... $i/18"; sleep 5
             done
-
-            if [ "$STATUS" != "200" ]; then
-              echo "ERROR: Health check failed"
-              docker logs tirumala-api --tail 50
-              exit 1
-            fi
-
-            echo "=== Deployment complete ==="
+            if [ "$STATUS" != "200" ]; then docker logs tirumala-api --tail 50; exit 1; fi
             docker image prune -f
