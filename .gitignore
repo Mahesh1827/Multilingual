@@ -9,21 +9,28 @@ wheels/
 # Virtual environments
 .venv
 
-# Local secrets & environment
+# Secrets — never commit
 .env
+*.env.*
 
-# Large archives (cuDNN, model weights)
+# Test & coverage artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Large binaries
 *.zip
 *.tar.gz
-*.7z
+cudnn-*
 
-# Local data & artifacts (not for Git)
+# Model & vector store caches (downloaded at runtime)
 .cache/
-Data/
-eval/
-ocr/
 vector_store/
-__pycache__/
 
 # Logs
 *.log
+ocr_run.log
+
+# macOS
+.DS_Store

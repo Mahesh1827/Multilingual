@@ -1,0 +1,48 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environment — always excluded (deps are installed inside image)
+.venv/
+venv/
+env/
+
+# Local dev files
+.env
+*.env.*
+
+# Large binaries not needed at runtime
+cudnn-*.zip
+*.zip
+*.tar.gz
+
+# Model caches — downloaded at runtime, not baked into image
+.cache/
+vector_store/
+
+# Raw data — mount as a volume in production
+Data/
+
+# Processed artifacts — regenerated at startup
+processed/
+
+# Test & CI files
+tests/
+eval/
+.flake8
+requirements-ci.txt
+
+# Logs
+*.log
+ocr_run.log
+
+# Docs
+README.md

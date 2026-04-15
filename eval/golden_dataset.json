@@ -1,0 +1,233 @@
+[
+  {
+    "question": "What are the seven hills of Tirumala?",
+    "expected_answer": "The seven hills are Seshadri, Neeladri, Garudadri, Anjanadri, Vrishabhadri, Narayanadri, and Venkatadri.",
+    "domain": "about_tirumala"
+  },
+  {
+    "question": "What is the altitude of Tirumala?",
+    "expected_answer": "Tirumala is situated at an altitude of about 853 meters (2,799 feet) above sea level.",
+    "domain": "about_tirumala"
+  },
+  {
+    "question": "What is Akasa Ganga?",
+    "expected_answer": "Akasa Ganga is a sacred waterfall located on the hills of Tirumala, believed to be a divine waterfall.",
+    "domain": "about_tirumala"
+  },
+  {
+    "question": "Where is Tirumala located?",
+    "expected_answer": "Tirumala is located in the Chittoor district of Andhra Pradesh, India, in the Eastern Ghats.",
+    "domain": "about_tirumala"
+  },
+  {
+    "question": "What is the significance of Saptagiri?",
+    "expected_answer": "Saptagiri refers to the seven hills of Tirumala, which are considered sacred and are associated with various mythological stories.",
+    "domain": "about_tirumala"
+  },
+  {
+    "question": "How to book darshan tickets at Tirumala?",
+    "expected_answer": "Darshan tickets can be booked online through the TTD website or at local TTD counters. Virtual queue tokens are also available.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "What is the dress code for Tirumala temple?",
+    "expected_answer": "Traditional Indian attire is required. Men should wear dhoti/panche and women should wear saree or salwar kameez. Jeans, shorts, and western wear are not allowed.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "How to get the famous Tirupati Laddu?",
+    "expected_answer": "The Srivari Laddu can be obtained at the prasadam counters after darshan. It can also be booked in advance through the TTD online portal.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "What types of darshan are available?",
+    "expected_answer": "Types include Sarva Darshan (free), Divya Darshan, Special Entry Darshan (₹300 ticket), and VIP Break Darshan.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "What is the virtual queue system?",
+    "expected_answer": "The virtual queue system allows devotees to get a time slot for darshan through online booking, reducing physical waiting time.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "What accommodation options are available at Tirumala?",
+    "expected_answer": "TTD provides various accommodation options including guest houses, cottages, choultries, and dormitories for pilgrims.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "What is Brahmotsavam?",
+    "expected_answer": "Brahmotsavam is the annual nine-day festival at Tirumala, considered the most important festival, celebrated with processions of the deity on various vahanas.",
+    "domain": "festival_events"
+  },
+  {
+    "question": "When is Vaikunta Ekadasi celebrated?",
+    "expected_answer": "Vaikunta Ekadasi is celebrated during December-January. It is one of the most auspicious days when the Vaikunta Dwaram (gate to heaven) is opened.",
+    "domain": "festival_events"
+  },
+  {
+    "question": "What is Kalyanotsavam?",
+    "expected_answer": "Kalyanotsavam is the celestial wedding ceremony of Lord Venkateswara performed daily at the temple.",
+    "domain": "festival_events"
+  },
+  {
+    "question": "What is Teppotsavam?",
+    "expected_answer": "Teppotsavam is the float festival where the processional deities are taken on a decorated float in the temple tank.",
+    "domain": "festival_events"
+  },
+  {
+    "question": "What is the history of Sri Venkateswara Temple?",
+    "expected_answer": "The temple has ancient origins dating back over 2000 years. It received significant patronage from Pallava, Chola, and Vijayanagara dynasties.",
+    "domain": "temple_history"
+  },
+  {
+    "question": "Who built the gopuram of Tirumala temple?",
+    "expected_answer": "The main gopuram and many architectural additions were made during the Vijayanagara period under the patronage of Krishnadevaraya.",
+    "domain": "temple_history"
+  },
+  {
+    "question": "What inscriptions are found at Tirumala?",
+    "expected_answer": "Various inscriptions from Pallava, Chola, and Vijayanagara periods are found at Tirumala documenting donations, land grants, and temple administration.",
+    "domain": "temple_history"
+  },
+  {
+    "question": "What is Vishnu Sahasranama?",
+    "expected_answer": "Vishnu Sahasranama is a sacred text listing 1000 names of Lord Vishnu, commonly recited in devotional practices at Tirumala.",
+    "domain": "knowledge_scripture"
+  },
+  {
+    "question": "What is Venkateswara Suprabhatam?",
+    "expected_answer": "Suprabhatam is the morning prayer recited to wake Lord Venkateswara. It is composed by Prativadi Bhayankaram Annangaracharya.",
+    "domain": "knowledge_scripture"
+  },
+  {
+    "question": "What are the stotras associated with Lord Venkateswara?",
+    "expected_answer": "Key stotras include Venkateswara Suprabhatam, Venkateswara Stotram, Vishnu Sahasranama, and various compositions by Annamacharya.",
+    "domain": "knowledge_scripture"
+  },
+  {
+    "question": "What is the significance of Annamacharya?",
+    "expected_answer": "Annamacharya was a 15th-century saint and composer who composed thousands of kirtanas in praise of Lord Venkateswara at Tirumala.",
+    "domain": "knowledge_scripture"
+  },
+  {
+    "question": "What sevas are performed at Tirumala?",
+    "expected_answer": "Sevas include Thomala Seva, Archana, Kalyanotsavam, Sahasra Deepalankara Seva, Suprabhatam Seva, and Unjal Seva among others.",
+    "domain": "devotional_practice"
+  },
+  {
+    "question": "What is Suprabhatam Seva?",
+    "expected_answer": "Suprabhatam Seva is the early morning seva where devotees participate in waking up the Lord with the recitation of Suprabhatam.",
+    "domain": "devotional_practice"
+  },
+  {
+    "question": "What is the significance of prasadam at Tirumala?",
+    "expected_answer": "Prasadam is considered blessed food offered to the deity. The Srivari Laddu is the most famous prasadam distributed at Tirumala.",
+    "domain": "devotional_practice"
+  },
+  {
+    "question": "What is Thomala Seva?",
+    "expected_answer": "Thomala Seva is a seva where devotees offer garlands to Lord Venkateswara, performed during early morning hours.",
+    "domain": "devotional_practice"
+  },
+  {
+    "question": "How to reach Tirumala from Chennai?",
+    "expected_answer": "Tirumala can be reached from Chennai by road (about 130 km), by train to Tirupati, and then by bus or taxi up the hills.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "What is the role of TTD?",
+    "expected_answer": "Tirumala Tirupati Devasthanams (TTD) is the trust board that manages the Sri Venkateswara Temple and its associated institutions.",
+    "domain": "about_tirumala"
+  },
+  {
+    "question": "What is the legend of Lord Venkateswara?",
+    "expected_answer": "According to legend, Lord Vishnu took the form of Venkateswara and resided on the seven hills of Tirumala to be close to his devotees.",
+    "domain": "temple_history"
+  },
+  {
+    "question": "What is the significance of the Tuesday darshan queue?",
+    "expected_answer": "Tuesday is considered an auspicious day for darshan at Tirumala, and the queue tends to be longer. Special darshan arrangements may be made.",
+    "domain": "pilgrimage_seva"
+  },
+  {
+    "question": "తిరుమల ఏడు కొండల పేర్లు ఏమిటి?",
+    "expected_answer": "The seven hills are Seshadri, Neeladri, Garudadri, Anjanadri, Vrishabhadri, Narayanadri, and Venkatadri.",
+    "domain": "about_tirumala",
+    "language": "te",
+    "note": "Telugu: Names of seven hills"
+  },
+  {
+    "question": "तिरुमाला दर्शन टिकट कैसे बुक करें?",
+    "expected_answer": "Darshan tickets can be booked online through the TTD website or at local TTD counters.",
+    "domain": "pilgrimage_seva",
+    "language": "hi",
+    "note": "Hindi: How to book darshan tickets"
+  },
+  {
+    "question": "திருமலை கோயிலின் வரலாறு என்ன?",
+    "expected_answer": "The temple has ancient origins dating back over 2000 years with patronage from Pallava, Chola, and Vijayanagara dynasties.",
+    "domain": "temple_history",
+    "language": "ta",
+    "note": "Tamil: Temple history"
+  },
+  {
+    "question": "ತಿರುಮಲದಲ್ಲಿ ಯಾವ ಸೇವೆಗಳು ಲಭ್ಯವಿವೆ?",
+    "expected_answer": "Sevas include Thomala Seva, Archana, Kalyanotsavam, Suprabhatam Seva, and Unjal Seva among others.",
+    "domain": "devotional_practice",
+    "language": "kn",
+    "note": "Kannada: Available sevas"
+  },
+  {
+    "question": "What is the capital of India?",
+    "expected_answer": "I can only help with questions about Tirumala and TTD.",
+    "domain": "out_of_scope",
+    "note": "Out-of-scope: should be rejected"
+  },
+  {
+    "question": "How much does a laddu cost and how many can I buy?",
+    "expected_answer": "The Srivari Laddu prasadam is available at a nominal price. Each devotee can purchase a limited number of laddus as per TTD rules.",
+    "domain": "pilgrimage_seva",
+    "note": "Multi-part question"
+  },
+  {
+    "question": "hello",
+    "expected_answer": "Namaskaram! Welcome to the Tirumala Assistant.",
+    "domain": "conversational",
+    "note": "Greeting: should be handled by FAQ agent"
+  },
+  {
+    "question": "tirumala ekkada undi",
+    "expected_answer": "Tirumala is located in the Chittoor district of Andhra Pradesh, India.",
+    "domain": "about_tirumala",
+    "language": "te",
+    "note": "Romanized Telugu: Where is Tirumala located?"
+  },
+  {
+    "question": "tirumala darshan ticket kaise book karein",
+    "expected_answer": "Darshan tickets can be booked online through the TTD website or at local TTD counters.",
+    "domain": "pilgrimage_seva",
+    "language": "hi",
+    "note": "Romanized Hindi: How to book darshan tickets?"
+  },
+  {
+    "question": "tirumala kovil eppadi poga",
+    "expected_answer": "You can reach Tirumala by bus, taxi, or by walking up from Tirupati via the Alipiri footpath.",
+    "domain": "pilgrimage_seva",
+    "language": "ta",
+    "note": "Romanized Tamil: How to go to Tirumala temple?"
+  },
+  {
+    "question": "tirumala devalaya elli ide",
+    "expected_answer": "Tirumala is located in the Chittoor district of Andhra Pradesh, India.",
+    "domain": "about_tirumala",
+    "language": "kn",
+    "note": "Romanized Kannada: Where is Tirumala temple?"
+  },
+  {
+    "question": "darshan timings batao tell in English",
+    "expected_answer": "Darshan timings at Tirumala temple vary. The temple generally opens early morning and darshan continues throughout the day.",
+    "domain": "pilgrimage_seva",
+    "language": "hi",
+    "note": "Romanized Hindi with explicit English override"
+  }
+]

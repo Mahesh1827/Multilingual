@@ -1,0 +1,32 @@
+[flake8]
+max-line-length = 120
+max-doc-length = 120
+
+# Exclude auto-generated / third-party paths
+exclude =
+    .venv,
+    __pycache__,
+    .git,
+    build,
+    dist,
+    *.egg-info,
+    .cache,
+    vector_store,
+    eval,
+    ocr/__pycache__,
+    query/__pycache__
+
+# Ignore rules that conflict with common ML/async patterns:
+#   E402 — module-level imports not at top (needed for _env_setup pattern)
+#   W503 — line break before binary operator (conflicts with Black)
+#   E501 handled by max-line-length above
+ignore = E402, W503, E203
+
+# Per-file ignores
+per-file-ignores =
+    # Allow unused imports in __init__.py re-exports
+    __init__.py: F401
+    # Allow broad except in setup/bootstrap
+    _env_setup.py: E402, F401, E303
+    # Test files can use assert and magic values
+    tests/*.py: S101, B011

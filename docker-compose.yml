@@ -1,0 +1,112 @@
+# ══════════════════════════════════════════════════════════════
+# Tirumala AI Assistant — Docker Compose
+#
+# Services:
+#   api     — FastAPI application (port 8000)
+#   ollama  — Local LLM server     (port 11434)
+#
+# Usage:
+#   Development:  docker compose up
+#   Production:   docker compose -f docker-compose.yml up -d
+#   Logs:         docker compose logs -f api
+#   Stop:         docker compose down
+# ══════════════════════════════════════════════════════════════
+
+version: "3.9"
+
+services:
+
+  # ── FastAPI Application ──────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # To use a pre-built image from DockerHub instead:
+      # image: ${DOCKERHUB_USERNAME}/tirumala-ai:latest
+    container_name: tirumala-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env   # contains HF_TOKEN, TAVILY_API_KEY, GROQ_API_KEY
+    environment:
+      # Override Ollama URL to point at the sidecar container
+      OLLAMA_BASE_URL: http://ollama:11434
+      # Cache dirs inside the container (mapped to named volumes below)
+      HF_HOME: /app/.cache/model_cache/huggingface
+      HF_HUB_CACHE: /app/.cache/model_cache/huggingface/hub
+      TRANSFORMERS_CACHE: /app/.cache/model_cache/huggingface/hub
+      TORCH_HOME: /app/.cache/model_cache/torch
+      PPOCR_HOME: /app/.cache/model_cache/paddleocr
+      PADDLE_HOME: /app/.cache/model_cache/paddle
+    volumes:
+      # Persist downloaded models between container restarts
+      - model_cache:/app/.cache/model_cache
+      # Mount the vector store so it survives redeploys
+      - vector_store:/app/vector_store
+      # Mount the PDF data directory (read-only in API container)
+      - ./Data:/app/Data:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - tirumala-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ── Ollama LLM Server ────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: tirumala-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      # Persist pulled models between restarts (can be many GB)
+      - ollama_data:/root/.ollama
+    # Uncomment for GPU support (requires nvidia-docker):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tirumala-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+# ── Named volumes ────────────────────────────────────────────
+volumes:
+  model_cache:
+    name: tirumala_model_cache
+  vector_store:
+    name: tirumala_vector_store
+  ollama_data:
+    name: tirumala_ollama_data
+
+# ── Network ───────────────────────────────────────────────────
+networks:
+  tirumala-net:
+    driver: bridge
+    name: tirumala-network

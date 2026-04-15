@@ -1,0 +1,59 @@
+# ──────────────────────────────────────────────────────────────
+# CI-safe requirements — CPU only, no GPU/CUDA/PaddleOCR
+# Used by GitHub Actions; production uses requirements.txt
+# Install CPU torch FIRST with:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# ──────────────────────────────────────────────────────────────
+
+# Core
+numpy>=1.26,<2.0
+tqdm>=4.66
+Pillow>=10.0
+python-dotenv>=1.0
+requests>=2.31
+scipy>=1.11
+
+# Documents (no PDF rendering deps that need system libs)
+pymupdf>=1.24
+python-docx>=1.1
+
+# Embeddings (CPU-compatible)
+sentence-transformers>=3.0
+faiss-cpu>=1.8
+rank-bm25>=0.2.2
+
+# LangChain ecosystem
+langchain>=0.3
+langchain-core>=0.3
+langchain-community>=0.3
+langchain-text-splitters>=0.3
+langchain-huggingface>=0.1
+langchain-ollama>=0.2
+langgraph>=0.2
+
+# LLM provider (Groq is lighter than Ollama for CI)
+langchain-groq>=0.2
+
+# Web search
+ddgs
+trafilatura
+
+# Language detection
+langdetect>=1.0.9
+deep-translator>=1.11
+lingua-language-detector>=2.0
+
+# Web framework
+fastapi>=0.100
+uvicorn[standard]>=0.24
+pydantic>=2.0
+
+# HTTP client (used by FastAPI TestClient)
+httpx>=0.25
+
+# Testing & linting
+pytest>=8.0
+pytest-asyncio>=0.23
+pytest-cov>=5.0
+flake8>=7.0
+flake8-bugbear>=24.0
