@@ -4,6 +4,8 @@
 # Build:   docker build -t tirumala-ai:latest .
 # Run:     docker run -p 8000:8000 --env-file .env tirumala-ai:latest
 #
+# Server:  Uses gunicorn with Flask (production WSGI server)
+#
 # GPU note: To enable GPU passthrough, swap the base image to
 #           nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 #           and install torch with the CUDA index URL instead.
@@ -97,9 +99,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # ── Entry point ──────────────────────────────────────────────
 # --workers 1: safe default (increase for multi-core, but sentence-transformers
 #              is not fork-safe with multiple workers unless you pre-load models)
-CMD ["uvicorn", "server:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
+CMD ["gunicorn", "server:app", \
+     "--bind", "0.0.0.0:8000", \
      "--workers", "1", \
      "--log-level", "info", \
-     "--access-log"]
+     "--access-logfile", "-"]

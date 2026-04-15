@@ -44,16 +44,11 @@ deep-translator>=1.11
 lingua-language-detector>=2.0
 
 # Web framework
-fastapi>=0.100
-uvicorn[standard]>=0.24
-pydantic>=2.0
-
-# HTTP client (used by FastAPI TestClient)
-httpx>=0.25
+flask>=3.0
+flask-cors>=4.0
 
 # Testing & linting
 pytest>=8.0
-pytest-asyncio>=0.23
 pytest-cov>=5.0
 flake8>=7.0
 flake8-bugbear>=24.0

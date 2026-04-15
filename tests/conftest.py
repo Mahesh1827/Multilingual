@@ -4,8 +4,8 @@ Shared fixtures for the Tirumala AI Assistant test suite.
 Key design decisions:
   - Heavy ML modules (torch, paddle, transformers) are stubbed in sys.modules
     BEFORE any project code is imported, so CI runners need no GPU.
-  - `client` is function-scoped so each test gets a fresh TestClient with
-    its own lifespan, making per-test patching work correctly.
+  - `client` is function-scoped so each test gets a fresh test client,
+    making per-test patching work correctly.
   - Patch target is `server.run_query` / `server.check_ollama_health`
     because server.py uses `from ... import` (binds names in server's namespace).
 """
@@ -76,13 +76,13 @@ import pytest  # noqa: E402  (after sys.modules stubs)
 @pytest.fixture()
 def client():
     """
-    Return a TestClient with run_query and check_ollama_health mocked.
+    Return a Flask test client with run_query and check_ollama_health mocked.
     Function-scoped so per-test patches on server.run_query work correctly.
     """
     # Patch names in server's own namespace (where `from X import Y` bound them)
     with patch("server.run_query", return_value=DEFAULT_RESULT), \
          patch("server.check_ollama_health", return_value=True):
-        from fastapi.testclient import TestClient
         from server import app
-        with TestClient(app, raise_server_exceptions=False) as c:
+        app.config["TESTING"] = True
+        with app.test_client() as c:
             yield c

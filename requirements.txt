@@ -39,6 +39,11 @@ langgraph>=0.2
 # Web search
 ddgs
 
+# Web framework
+flask>=3.0
+flask-cors>=4.0
+gunicorn>=22.0
+
 # Language tools
 langdetect>=1.0.9
 deep-translator>=1.11

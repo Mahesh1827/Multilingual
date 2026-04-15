@@ -1,21 +1,20 @@
 """
-FastAPI Server for Tirumala Multi-Agent AI Assistant
-Wraps the LangGraph pipeline in async HTTP endpoints.
+Flask Server for Tirumala Multi-Agent AI Assistant
+Wraps the LangGraph pipeline in HTTP endpoints.
 
 Run:
-    uvicorn server:app --reload --port 8000
+    flask run --port 8000
+    OR
+    gunicorn -w 1 -b 0.0.0.0:8000 server:app
 """
 
 import _env_setup  # noqa: F401
 
-import asyncio
 import logging
 import time
-from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 from query.agents.pipeline import run_query
 from query.agents.knowledge_rag_agent import check_ollama_health
@@ -25,105 +24,96 @@ logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────────
-# Lifespan: warmup check
+# Flask App
 # ──────────────────────────────────────────────
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Startup / shutdown hooks."""
-    if check_ollama_health():
-        logger.info("✅ Ollama is reachable.")
-    else:
-        logger.warning("⚠️  Ollama is not running. Answers may use raw context.")
-    yield
+app = Flask(__name__)
+CORS(app)
 
 
 # ──────────────────────────────────────────────
-# FastAPI App
+# Startup log (runs once at import time)
 # ──────────────────────────────────────────────
 
-app = FastAPI(
-    title="Tirumala AI Assistant API",
-    description="Multi-agent RAG pipeline for Tirumala TTD queries",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def _warmup():
+    """Log Ollama status on first import (non-blocking)."""
+    try:
+        if check_ollama_health():
+            logger.info("✅ Ollama is reachable.")
+        else:
+            logger.warning("⚠️  Ollama is not running. Answers may use raw context.")
+    except Exception:
+        logger.warning("⚠️  Ollama check skipped (not available).")
 
 
-# ──────────────────────────────────────────────
-# Request / Response models
-# ──────────────────────────────────────────────
-
-class QueryRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="User's question")
-    chat_history: list[dict] = Field(default_factory=list, description="Previous conversation turns")
-
-
-class QueryResponse(BaseModel):
-    query_original: str
-    query_english: str
-    language: str
-    agent_route: str
-    answer: str
-    sources: list = []
-    domains: list = []
-    verification: dict = {}
-    suggestions: list = []
-    response_time_s: float
+_warmup()
 
 
 # ──────────────────────────────────────────────
 # Endpoints
 # ──────────────────────────────────────────────
 
-@app.get("/health")
-async def health():
+@app.route("/health", methods=["GET"])
+def health():
     """Health check endpoint."""
-    ollama_ok = await asyncio.to_thread(check_ollama_health)
-    return {
+    ollama_ok = check_ollama_health()
+    return jsonify({
         "status": "healthy",
         "ollama": "connected" if ollama_ok else "disconnected",
-    }
+    })
 
 
-@app.post("/query", response_model=QueryResponse)
-async def query_endpoint(req: QueryRequest):
+@app.route("/query", methods=["POST"])
+def query_endpoint():
     """
     Submit a query to the multi-agent RAG pipeline.
-    Runs the synchronous pipeline in a thread pool to avoid blocking.
+    Expects JSON body with a 'query' field and optional 'chat_history'.
     """
+    # ── Validate request ─────────────────────────────────────
+    if not request.is_json:
+        return jsonify({"detail": "Content-Type must be application/json"}), 422
+
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"detail": "Invalid JSON body"}), 422
+
+    query = data.get("query", "")
+    if not isinstance(query, str) or len(query.strip()) == 0:
+        return jsonify({"detail": "query field is required and must be non-empty"}), 422
+
+    chat_history = data.get("chat_history", [])
+
+    # ── Run pipeline ─────────────────────────────────────────
     start = time.time()
 
     try:
-        result = await asyncio.to_thread(
-            run_query, req.query, req.chat_history
-        )
+        result = run_query(query, chat_history)
     except Exception as e:
         logger.error(f"Pipeline error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
     elapsed = time.time() - start
 
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        return jsonify({"detail": result["error"]}), 400
 
-    return QueryResponse(
-        query_original=result.get("query_original", ""),
-        query_english=result.get("query_english", ""),
-        language=result.get("language", "en"),
-        agent_route=result.get("agent_route", "unknown"),
-        answer=result.get("answer", ""),
-        sources=result.get("sources", []),
-        domains=result.get("domains", []),
-        verification=result.get("verification", {}),
-        suggestions=result.get("suggestions", []),
-        response_time_s=round(elapsed, 2),
-    )
+    return jsonify({
+        "query_original": result.get("query_original", ""),
+        "query_english":  result.get("query_english", ""),
+        "language":       result.get("language", "en"),
+        "agent_route":    result.get("agent_route", "unknown"),
+        "answer":         result.get("answer", ""),
+        "sources":        result.get("sources", []),
+        "domains":        result.get("domains", []),
+        "verification":   result.get("verification", {}),
+        "suggestions":    result.get("suggestions", []),
+        "response_time_s": round(elapsed, 2),
+    })
+
+
+# ──────────────────────────────────────────────
+# Direct execution
+# ──────────────────────────────────────────────
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=False)

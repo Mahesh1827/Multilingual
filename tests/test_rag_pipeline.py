@@ -12,6 +12,28 @@ from tests.conftest import DEFAULT_RESULT
 
 
 # ──────────────────────────────────────────────────────────────
+# Helper: create a Flask test client with custom patches
+# ──────────────────────────────────────────────────────────────
+
+def _make_client(run_query_rv=None, run_query_se=None):
+    """Return a Flask test client with server.run_query patched."""
+    kw = {"return_value": run_query_rv} if run_query_se is None else {"side_effect": run_query_se}
+    ctx = patch("server.run_query", **kw)
+    ctx2 = patch("server.check_ollama_health", return_value=True)
+    ctx.start()
+    ctx2.start()
+    from server import app
+    app.config["TESTING"] = True
+    c = app.test_client()
+    return c, ctx, ctx2
+
+
+def _cleanup(*ctxs):
+    for c in ctxs:
+        c.stop()
+
+
+# ──────────────────────────────────────────────────────────────
 # Happy-path
 # ──────────────────────────────────────────────────────────────
 
@@ -21,7 +43,7 @@ class TestQueryEndpointHappyPath:
         assert client.post("/query", json={"query": "Darshan timings?"}).status_code == 200
 
     def test_response_is_valid_json(self, client):
-        assert isinstance(client.post("/query", json={"query": "Darshan timings?"}).json(), dict)
+        assert isinstance(client.post("/query", json={"query": "Darshan timings?"}).get_json(), dict)
 
     def test_response_contains_required_fields(self, client):
         required = [
@@ -29,26 +51,26 @@ class TestQueryEndpointHappyPath:
             "agent_route", "answer", "sources", "domains",
             "verification", "suggestions", "response_time_s",
         ]
-        data = client.post("/query", json={"query": "Darshan timings?"}).json()
+        data = client.post("/query", json={"query": "Darshan timings?"}).get_json()
         for field in required:
             assert field in data, f"Missing field: {field}"
 
     def test_answer_is_non_empty_string(self, client):
-        data = client.post("/query", json={"query": "Darshan timings?"}).json()
+        data = client.post("/query", json={"query": "Darshan timings?"}).get_json()
         assert isinstance(data["answer"], str) and len(data["answer"]) > 0
 
     def test_language_is_valid_code(self, client):
-        lang = client.post("/query", json={"query": "Darshan timings?"}).json()["language"]
+        lang = client.post("/query", json={"query": "Darshan timings?"}).get_json()["language"]
         assert lang in ("en", "hi", "te", "ta", "kn")
 
     def test_sources_is_list(self, client):
-        assert isinstance(client.post("/query", json={"query": "Darshan timings?"}).json()["sources"], list)
+        assert isinstance(client.post("/query", json={"query": "Darshan timings?"}).get_json()["sources"], list)
 
     def test_suggestions_is_list(self, client):
-        assert isinstance(client.post("/query", json={"query": "Darshan timings?"}).json()["suggestions"], list)
+        assert isinstance(client.post("/query", json={"query": "Darshan timings?"}).get_json()["suggestions"], list)
 
     def test_response_time_is_numeric(self, client):
-        rt = client.post("/query", json={"query": "Darshan timings?"}).json()["response_time_s"]
+        rt = client.post("/query", json={"query": "Darshan timings?"}).get_json()["response_time_s"]
         assert isinstance(rt, (int, float)) and rt >= 0
 
     def test_with_chat_history(self, client):
@@ -77,14 +99,13 @@ class TestQueryEndpointMultilingual:
     ])
     def test_multilingual_query_accepted(self, query_text, lang_code):
         result = dict(DEFAULT_RESULT, language=lang_code, query_original=query_text)
-        with patch("server.run_query", return_value=result), \
-             patch("server.check_ollama_health", return_value=True):
-            from fastapi.testclient import TestClient
-            from server import app
-            with TestClient(app, raise_server_exceptions=False) as c:
-                response = c.post("/query", json={"query": query_text})
-        assert response.status_code == 200
-        assert response.json()["language"] == lang_code
+        c, ctx1, ctx2 = _make_client(run_query_rv=result)
+        try:
+            response = c.post("/query", json={"query": query_text})
+            assert response.status_code == 200
+            assert response.get_json()["language"] == lang_code
+        finally:
+            _cleanup(ctx1, ctx2)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -102,28 +123,26 @@ class TestQueryEndpointErrorHandling:
     def test_wrong_content_type_returns_422(self, client):
         response = client.post(
             "/query",
-            content="plain text",
-            headers={"Content-Type": "text/plain"},
+            data="plain text",
+            content_type="text/plain",
         )
         assert response.status_code in (415, 422)
 
     def test_pipeline_exception_returns_500(self):
-        with patch("server.run_query", side_effect=RuntimeError("Vector store not loaded")), \
-             patch("server.check_ollama_health", return_value=True):
-            from fastapi.testclient import TestClient
-            from server import app
-            with TestClient(app, raise_server_exceptions=False) as c:
-                response = c.post("/query", json={"query": "What is Tirumala?"})
-        assert response.status_code == 500
+        c, ctx1, ctx2 = _make_client(run_query_se=RuntimeError("Vector store not loaded"))
+        try:
+            response = c.post("/query", json={"query": "What is Tirumala?"})
+            assert response.status_code == 500
+        finally:
+            _cleanup(ctx1, ctx2)
 
     def test_pipeline_error_response_has_detail_field(self):
-        with patch("server.run_query", side_effect=RuntimeError("crash")), \
-             patch("server.check_ollama_health", return_value=True):
-            from fastapi.testclient import TestClient
-            from server import app
-            with TestClient(app, raise_server_exceptions=False) as c:
-                response = c.post("/query", json={"query": "What is Tirumala?"})
-        assert "detail" in response.json()
+        c, ctx1, ctx2 = _make_client(run_query_se=RuntimeError("crash"))
+        try:
+            response = c.post("/query", json={"query": "What is Tirumala?"})
+            assert "detail" in response.get_json()
+        finally:
+            _cleanup(ctx1, ctx2)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -134,45 +153,41 @@ class TestPipelineResultContract:
 
     def test_agent_route_forwarded_correctly(self):
         result = dict(DEFAULT_RESULT, agent_route="web_search")
-        with patch("server.run_query", return_value=result), \
-             patch("server.check_ollama_health", return_value=True):
-            from fastapi.testclient import TestClient
-            from server import app
-            with TestClient(app, raise_server_exceptions=False) as c:
-                response = c.post("/query", json={"query": "Latest TTD news?"})
-        assert response.json()["agent_route"] == "web_search"
+        c, ctx1, ctx2 = _make_client(run_query_rv=result)
+        try:
+            response = c.post("/query", json={"query": "Latest TTD news?"})
+            assert response.get_json()["agent_route"] == "web_search"
+        finally:
+            _cleanup(ctx1, ctx2)
 
     def test_sources_forwarded_from_pipeline(self):
         sources = ["doc_a.pdf", "doc_b.pdf", "doc_c.pdf"]
         result = dict(DEFAULT_RESULT, sources=sources)
-        with patch("server.run_query", return_value=result), \
-             patch("server.check_ollama_health", return_value=True):
-            from fastapi.testclient import TestClient
-            from server import app
-            with TestClient(app, raise_server_exceptions=False) as c:
-                response = c.post("/query", json={"query": "Tirumala history?"})
-        assert response.json()["sources"] == sources
+        c, ctx1, ctx2 = _make_client(run_query_rv=result)
+        try:
+            response = c.post("/query", json={"query": "Tirumala history?"})
+            assert response.get_json()["sources"] == sources
+        finally:
+            _cleanup(ctx1, ctx2)
 
     def test_pipeline_returning_error_key_gives_400(self):
         error_result = {"error": "Query validation failed"}
-        with patch("server.run_query", return_value=error_result), \
-             patch("server.check_ollama_health", return_value=True):
-            from fastapi.testclient import TestClient
-            from server import app
-            with TestClient(app, raise_server_exceptions=False) as c:
-                response = c.post("/query", json={"query": "test"})
-        assert response.status_code == 400
+        c, ctx1, ctx2 = _make_client(run_query_rv=error_result)
+        try:
+            response = c.post("/query", json={"query": "test"})
+            assert response.status_code == 400
+        finally:
+            _cleanup(ctx1, ctx2)
 
     def test_verification_dict_forwarded(self):
         verification = {"grounded": True, "score": 0.95}
         result = dict(DEFAULT_RESULT, verification=verification)
-        with patch("server.run_query", return_value=result), \
-             patch("server.check_ollama_health", return_value=True):
-            from fastapi.testclient import TestClient
-            from server import app
-            with TestClient(app, raise_server_exceptions=False) as c:
-                response = c.post("/query", json={"query": "Tell me about Balaji?"})
-        assert response.json()["verification"]["grounded"] is True
+        c, ctx1, ctx2 = _make_client(run_query_rv=result)
+        try:
+            response = c.post("/query", json={"query": "Tell me about Balaji?"})
+            assert response.get_json()["verification"]["grounded"] is True
+        finally:
+            _cleanup(ctx1, ctx2)
 
 
 # ──────────────────────────────────────────────────────────────

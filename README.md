@@ -27,7 +27,9 @@ pip install -r requirements.txt
 
 ### Run the API server
 ```bash
-uvicorn server:app --reload --port 8000
+flask --app server run --port 8000
+# OR with gunicorn (production)
+gunicorn -w 1 -b 0.0.0.0:8000 server:app
 ```
 
 ### Run with Docker
@@ -67,5 +69,5 @@ Then uncomment the `deploy` job in `.github/workflows/ci-cd.yml`.
 - **Voice Interface**: Speak queries directly in your native language
 - **RAG Pipeline**: Accurate answers grounded in Tirumala-specific knowledge bases
 - **Multi-Agent**: LangGraph-based agent routing for FAQ, RAG, Web Search, and Scripture queries
-- **Dockerized**: Production-ready multi-stage Docker image
+- **Dockerized**: Production-ready multi-stage Docker image with Flask + Gunicorn
 - **CI/CD Integrated**: Automated lint, test, and Docker publish on every push

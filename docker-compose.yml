@@ -2,7 +2,7 @@
 # Tirumala AI Assistant — Docker Compose
 #
 # Services:
-#   api     — FastAPI application (port 8000)
+#   api     — Flask application    (port 8000)
 #   ollama  — Local LLM server     (port 11434)
 #
 # Usage:
@@ -16,7 +16,7 @@ version: "3.9"
 
 services:
 
-  # ── FastAPI Application ──────────────────────────────────
+  # ── Flask Application ──────────────────────────────────────
   api:
     build:
       context: .
