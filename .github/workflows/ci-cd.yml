@@ -6,6 +6,11 @@ on:
     branches:
       - main
 
+# Opt into Node.js 24 now to avoid forced migration warnings.
+# Remove this once all actions ship Node.js 24 by default (after June 2026).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
 
   # ---------------------------------------------------------------
@@ -103,7 +108,7 @@ jobs:
 
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/tirumala-ai
           tags: |
@@ -111,7 +116,7 @@ jobs:
             type=sha,prefix=sha-,format=short
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
