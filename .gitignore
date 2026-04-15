@@ -5,25 +5,25 @@ build/
 dist/
 wheels/
 *.egg-info
-*.log
 
 # Virtual environments
 .venv
 
-# Environments
+# Local secrets & environment
 .env
-.env.*
 
-# Cache and Data
-.cache/
-vector_store/
-Data/
-processed/
-eval/
-ocr/
-
-# Large binaries
+# Large archives (cuDNN, model weights)
 *.zip
 *.tar.gz
-*.bin
-*.model
+*.7z
+
+# Local data & artifacts (not for Git)
+.cache/
+Data/
+eval/
+ocr/
+vector_store/
+__pycache__/
+
+# Logs
+*.log

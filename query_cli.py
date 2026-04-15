@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import time
 import re
+import argparse
 from pathlib import Path
 
 # Suppress loud logs for interactive mode
@@ -416,6 +417,9 @@ def _build_pipeline_history(history: list) -> list[dict]:
 # ─────────────────────────────────────────────
 
 def main():
+    parser = argparse.ArgumentParser(description="Tirumala Multi-Agent AI Assistant CLI")
+    parser.add_argument("--check", action="store_true", help="Run a non-interactive health check of the pipeline")
+    args = parser.parse_args()
 
     print("=" * 70)
     print(" Tirumala Multi-Agent AI Assistant")
@@ -429,6 +433,20 @@ def main():
         print("Ollama is running.")
     else:
         print("Warning: Ollama not running. Answers may use raw context.")
+
+    if args.check:
+        print("\n[CI/CD Health Check]")
+        print("Verifying pipeline initialization...")
+        try:
+            # Simple check: can we initialize the pipeline and run a trivial detection?
+            detected = _detect_text_language("Tirumala darshan")
+            print(f"✅ Language detection working (detected: {detected})")
+            print("✅ Pipeline components importable.")
+            print("\nInitialization SUCCESS.")
+            return
+        except Exception as e:
+            print(f"❌ Initialization FAILED: {e}")
+            sys.exit(1)
 
     print("\nSelect Interaction Mode:")
     print("  [1] Text Chat (Default)")

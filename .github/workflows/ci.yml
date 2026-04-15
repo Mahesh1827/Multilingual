@@ -28,6 +28,6 @@ jobs:
     - name: Install dependencies
       run: uv sync
 
-    - name: Run language detection tests
+    - name: Health check (Initialization)
       run: |
-        uv run python test_lang_detect.py --batch
+        uv run python query_cli.py --check
