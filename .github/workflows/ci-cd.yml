@@ -122,72 +122,13 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------
-  # JOB 3: Deploy via SSH (main branch only, after Docker push)
+  # JOB 3: Deploy via SSH — DISABLED (no production server configured)
+  # Uncomment and set SSH_HOST, SSH_USER, SSH_PRIVATE_KEY, SSH_PORT
+  # secrets in GitHub → Settings → Secrets and variables → Actions
+  # when you have a production server ready.
   # ---------------------------------------------------------------
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: docker-build-push
-    timeout-minutes: 20
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    # NOTE: 'environment.url' cannot use secrets — use static URL or omit
-    environment:
-      name: production
-    steps:
-      - name: Deploy to production server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          timeout: 300s
-          script: |
-            set -e
-            DEPLOY_DIR="$HOME/tirumala-ai"
-            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/tirumala-ai:latest"
-            echo "=== [1/6] Pulling latest image ==="
-            docker pull "$IMAGE"
-            echo "=== [2/6] Stopping old container ==="
-            docker stop tirumala-api 2>/dev/null || true
-            docker rm   tirumala-api 2>/dev/null || true
-            echo "=== [3/6] Ensuring named volumes ==="
-            docker volume create tirumala_model_cache 2>/dev/null || true
-            docker volume create tirumala_vector_store 2>/dev/null || true
-            docker volume create tirumala_ollama_data  2>/dev/null || true
-            echo "=== [4/6] Starting Ollama ==="
-            docker start tirumala-ollama 2>/dev/null || \
-            docker run -d \
-              --name tirumala-ollama \
-              --restart unless-stopped \
-              -p 11434:11434 \
-              -v tirumala_ollama_data:/root/.ollama \
-              ollama/ollama:latest
-            echo "=== [5/6] Starting API container ==="
-            docker run -d \
-              --name tirumala-api \
-              --restart unless-stopped \
-              -p 8000:8000 \
-              --env-file "$DEPLOY_DIR/.env" \
-              -e OLLAMA_BASE_URL=http://tirumala-ollama:11434 \
-              -e HF_HOME=/app/.cache/model_cache/huggingface \
-              -e HF_HUB_CACHE=/app/.cache/model_cache/huggingface/hub \
-              -e TRANSFORMERS_CACHE=/app/.cache/model_cache/huggingface/hub \
-              -e TORCH_HOME=/app/.cache/model_cache/torch \
-              -v tirumala_model_cache:/app/.cache/model_cache \
-              -v tirumala_vector_store:/app/vector_store \
-              --link tirumala-ollama:tirumala-ollama \
-              "$IMAGE"
-            echo "=== [6/6] Health check ==="
-            for i in $(seq 1 18); do
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health 2>/dev/null || echo "000")
-              if [ "$STATUS" = "200" ]; then echo "Health OK at attempt $i"; break; fi
-              echo "Waiting... $i/18 (HTTP $STATUS)"; sleep 5
-            done
-            if [ "$STATUS" != "200" ]; then
-              echo "ERROR: health check failed"
-              docker logs tirumala-api --tail 50
-              exit 1
-            fi
-            echo "=== Deployment complete ==="
-            docker image prune -f
+  # deploy:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: docker-build-push
+  #   ...
