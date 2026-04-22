@@ -1,26 +1,45 @@
 """
-OCR Module — PaddleOCR + Qwen2.5-VL fallback
-Optimized for RAG document processing (GPU FIXED VERSION)
+OCR Module — Subprocess Bridge (PaddleOCR) + Qwen2.5-VL fallback (GPU)
+=======================================================================
+Optimized for RAG document processing (Multilingual)
+Supports per-language PaddleOCR for Telugu, Hindi, Tamil, English.
+
+Architecture (GPU-safe on Windows):
+  ┌─────────────────────────────────────────────────────┐
+  │  main_pipeline.py  (this process)                   │
+  │  PyTorch  → Qwen2.5-VL  (GPU)                       │
+  │  PyTorch  → multilingual-e5-large embeddings (GPU)  │
+  │                                                     │
+  │  run_paddle_ocr_subprocess()                        │
+  │       │  stdin: base64 PNG                          │
+  │       ▼                                             │
+  │  [ocr_worker.py subprocess]                         │
+  │       PaddlePaddle → PaddleOCR (GPU)                │
+  │       │  stdout: JSON result                        │
+  │       ▼                                             │
+  │  Returns {"text", "confidence", "details"}          │
+  └─────────────────────────────────────────────────────┘
+
+Two frameworks, two processes — zero pybind11/CUDA clash.
 """
 
 import os
-import threading
+import sys
+import json
+import base64
+import subprocess
 import logging
+import io
+import threading
 from pathlib import Path
 
 # ──────────────────────────────────────────────
-# ENV FIXES (must run early)
+# ENV FIXES
 # ──────────────────────────────────────────────
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 os.environ["FLAGS_use_mkldnn"] = "False"
 
-# 🔥 Import torch first (ensures CUDA runtime loads)
 import torch
-
-# 🔥 Ensure Paddle can see cuDNN from torch
-torch_lib = Path(torch.__file__).parent / "lib"
-if torch_lib.exists():
-    os.environ["PATH"] = str(torch_lib) + ";" + os.environ["PATH"]
 
 from PIL import Image
 import numpy as np
@@ -28,11 +47,14 @@ import cv2
 
 logger = logging.getLogger(__name__)
 
-# Thread lock for safe Paddle init
-_lock = threading.Lock()
+# ──────────────────────────────────────────────
+# Worker script path — resolves relative to this file
+# ──────────────────────────────────────────────
+_WORKER_SCRIPT = str(Path(__file__).resolve().parent / "ocr_worker.py")
+
 
 # ──────────────────────────────────────────────
-# Image Preprocessing
+# Image Preprocessing (unchanged from original)
 # ──────────────────────────────────────────────
 
 def preprocess_image_for_ocr(image):
@@ -65,29 +87,28 @@ def preprocess_image_for_ocr(image):
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     img = clahe.apply(img)
 
-    # Deskew
-    coords = np.column_stack(np.where(img > 10))
+    # Deskew (skip on very large images to prevent freezing)
+    h, w = img.shape[:2]
+    if h * w < 4_000_000:
+        coords = np.column_stack(np.where(img > 10))
 
-    if len(coords) > 0:
-        angle = cv2.minAreaRect(coords)[-1]
+        if len(coords) > 0 and len(coords) < 500_000:
+            angle = cv2.minAreaRect(coords)[-1]
 
-        if angle < -45:
-            angle = -(90 + angle)
-        else:
-            angle = -angle
+            if angle < -45:
+                angle = -(90 + angle)
+            else:
+                angle = -angle
 
-        (h, w) = img.shape[:2]
-        center = (w // 2, h // 2)
-
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-
-        img = cv2.warpAffine(
-            img,
-            M,
-            (w, h),
-            flags=cv2.INTER_CUBIC,
-            borderMode=cv2.BORDER_REPLICATE,
-        )
+            center = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            img = cv2.warpAffine(
+                img,
+                M,
+                (w, h),
+                flags=cv2.INTER_CUBIC,
+                borderMode=cv2.BORDER_REPLICATE,
+            )
 
     img = cv2.GaussianBlur(img, (3, 3), 0)
 
@@ -104,124 +125,183 @@ def preprocess_image_for_ocr(image):
 
 
 # ──────────────────────────────────────────────
-# PaddleOCR Engine (GPU SAFE)
+# PaddleOCR Subprocess Bridge
 # ──────────────────────────────────────────────
 
-_paddle_ocr = None
+def _image_to_base64_png(image) -> bytes:
+    """
+    Convert a numpy array or PIL Image to base64-encoded PNG bytes.
+    This is the payload sent to the OCR worker subprocess via stdin.
+    """
+    if isinstance(image, np.ndarray):
+        # numpy BGR → PIL RGB
+        if len(image.shape) == 2:
+            pil_image = Image.fromarray(image)
+        elif image.shape[2] == 4:
+            pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGRA2RGB))
+        else:
+            pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    elif isinstance(image, Image.Image):
+        pil_image = image.convert("RGB")
+    else:
+        raise TypeError(f"Unsupported image type: {type(image)}")
 
-def get_paddle_ocr(lang="en"):
-
-    global _paddle_ocr
-
-    with _lock:  # 🔥 thread-safe init
-
-        if _paddle_ocr is None:
-
-            logger.info("🚀 Loading PaddleOCR (GPU enabled)")
-
-            # 🔥 Lazy import (VERY IMPORTANT)
-            from paddleocr import PaddleOCR
-
-            _paddle_ocr = PaddleOCR(
-                use_angle_cls=False,
-                lang=lang,
-                use_gpu=True,   # 🚀 FORCE GPU
-                show_log=False
-            )
-
-    return _paddle_ocr
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue())
 
 
-# ──────────────────────────────────────────────
-# PaddleOCR Execution
-# ──────────────────────────────────────────────
+def _build_clean_env() -> dict:
+    """
+    Build a clean environment for the OCR worker subprocess.
+    Removes torch lib paths that could cause DLL conflicts with PaddlePaddle CUDA.
+    """
+    env = os.environ.copy()
+    # Strip any torch lib/bin paths from PATH to prevent DLL conflicts
+    path_parts = env.get("PATH", "").split(os.pathsep)
+    clean_parts = [p for p in path_parts if "torch" not in p.lower()]
+    env["PATH"] = os.pathsep.join(clean_parts)
+    return env
 
-def run_paddle_ocr(image, lang="en", use_gpu=True):
 
+def _run_worker(
+    img_b64: bytes,
+    lang: str,
+    use_gpu: bool,
+    timeout: int,
+) -> tuple[int, str, str]:
+    """
+    Low-level: spawn ocr_worker.py and return (returncode, stdout, stderr).
+    """
+    cmd = [sys.executable, _WORKER_SCRIPT, "--lang", lang]
+    if use_gpu:
+        cmd.append("--gpu")
+
+    mode = "GPU" if use_gpu else "CPU"
+    logger.info(f"Spawning OCR worker (lang={lang}, gpu={use_gpu})")
+
+    proc = subprocess.run(
+        cmd,
+        input=img_b64,
+        capture_output=True,
+        timeout=timeout,
+        env=_build_clean_env(),
+    )
+
+    stdout = proc.stdout.decode("utf-8", errors="replace").strip()
+    stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+
+    # Forward worker stderr to our logger
+    if stderr:
+        for line in stderr.splitlines():
+            logger.debug(f"[ocr_worker] {line}")
+
+    return proc.returncode, stdout, stderr
+
+
+def run_paddle_ocr_subprocess(
+    image,
+    lang: str = "en",
+    use_gpu: bool = True,
+    timeout: int = 120,
+) -> dict:
+    """
+    Run PaddleOCR in an isolated subprocess (ocr_worker.py).
+
+    Returns dict: {"text": str, "confidence": float, "details": list}
+
+    Auto-fallback: If GPU inference crashes (exit code != 0), the call
+    is automatically retried with CPU mode so document processing never
+    stalls.
+
+    Args:
+        image:    numpy array (BGR or grayscale) or PIL Image
+        lang:     PaddleOCR language code ("en", "te", "hi", "ta", etc.)
+        use_gpu:  Whether PaddleOCR should use GPU (safe in subprocess)
+        timeout:  Max seconds to wait for the worker (default: 120s)
+    """
     if image is None:
         logger.error("OCR received None image")
         return {"text": "", "confidence": 0.0, "details": []}
 
-    try:
-        img = np.array(image)
-        if img.size == 0:
-            raise ValueError("Empty image")
-
-    except Exception as e:
-        logger.error(f"Image conversion failed: {e}")
-        return {"text": "", "confidence": 0.0, "details": []}
+    empty_result = {"text": "", "confidence": 0.0, "details": []}
 
     try:
-        preprocessed = preprocess_image_for_ocr(image)
-
+        img_b64 = _image_to_base64_png(image)
     except Exception as e:
-        logger.error(f"OCR preprocessing failed: {e}")
-        return {"text": "", "confidence": 0.0, "details": []}
+        logger.error(f"Image encoding failed: {e}")
+        return empty_result
 
-    if preprocessed is None or preprocessed.size == 0:
-        logger.error("Invalid image after preprocessing")
-        return {"text": "", "confidence": 0.0, "details": []}
-
-    h, w = preprocessed.shape[:2]
-
-    if h < 40 or w < 40:
-        logger.warning("Image too small for OCR")
-        return {"text": "", "confidence": 0.0, "details": []}
-
-    # 🔥 Always GPU
-    ocr = get_paddle_ocr(lang)
-
+    # ── Attempt 1: requested mode (GPU or CPU) ──
     try:
-        result = ocr.ocr(preprocessed, cls=False)
+        rc, stdout, stderr = _run_worker(img_b64, lang, use_gpu, timeout)
 
-    except Exception as e:
-        logger.error(f"PaddleOCR failed: {e}")
-
-        try:
-            small = cv2.resize(
-                preprocessed,
-                None,
-                fx=0.75,
-                fy=0.75,
-                interpolation=cv2.INTER_AREA,
+        if rc != 0 and use_gpu:
+            # GPU crashed — auto-fallback to CPU
+            logger.warning(
+                f"OCR GPU worker crashed (code {rc}). "
+                f"Falling back to CPU mode …"
             )
+            rc, stdout, stderr = _run_worker(img_b64, lang, False, timeout)
 
-            result = ocr.ocr(small, cls=False)
-            logger.info("PaddleOCR retry succeeded")
+        if rc != 0:
+            logger.error(f"OCR worker exited with code {rc}")
+            return empty_result
 
-        except Exception as e2:
-            logger.error(f"PaddleOCR retry failed: {e2}")
-            return {"text": "", "confidence": 0.0, "details": []}
+        if not stdout:
+            logger.warning("OCR worker produced no output")
+            return empty_result
 
-    if not result:
-        return {"text": "", "confidence": 0.0, "details": []}
+        # PaddleOCR v3 prints warnings to stdout before the JSON.
+        # Extract only the last line that looks like JSON.
+        json_line = None
+        for line in reversed(stdout.splitlines()):
+            line = line.strip()
+            if line.startswith("{"):
+                json_line = line
+                break
 
-    lines, confidences, details = [], [], []
+        if json_line is None:
+            logger.warning("OCR worker produced no JSON output")
+            return empty_result
 
-    for line in result:
-        for line_info in line:
-            bbox, (text, conf) = line_info
-            lines.append(text)
-            confidences.append(conf)
+        result = json.loads(json_line)
 
-            details.append({
-                "text": text,
-                "confidence": conf,
-                "bbox": bbox
-            })
+        if "error" in result:
+            logger.error(f"OCR worker error: {result['error']}")
+            return empty_result
 
-    if not lines:
-        return {"text": "", "confidence": 0.0, "details": []}
+        logger.info(
+            f"PaddleOCR [{lang}] via subprocess: "
+            f"{len(result.get('details', []))} lines, "
+            f"confidence: {result.get('confidence', 0.0):.3f}"
+        )
+        return result
 
-    avg_conf = sum(confidences) / len(confidences)
+    except subprocess.TimeoutExpired:
+        logger.error(f"OCR worker timed out after {timeout}s")
+        return empty_result
 
-    logger.info(f"PaddleOCR: {len(lines)} lines, avg confidence: {avg_conf:.3f}")
+    except json.JSONDecodeError as e:
+        logger.error(f"OCR worker returned invalid JSON: {e}")
+        return empty_result
 
-    return {
-        "text": "\n".join(lines),
-        "confidence": avg_conf,
-        "details": details
-    }
+    except Exception as e:
+        logger.error(f"OCR subprocess failed: {e}")
+        return empty_result
+
+
+# ──────────────────────────────────────────────
+# Alias — keeps pipeline.py import unchanged
+# ──────────────────────────────────────────────
+
+def run_paddle_ocr(image, lang: str = "en", use_gpu: bool = True) -> dict:
+    """
+    Public alias for run_paddle_ocr_subprocess().
+    Maintains the same call signature as the original function so that
+    pipeline.py requires zero changes.
+    """
+    return run_paddle_ocr_subprocess(image, lang=lang, use_gpu=use_gpu)
 
 
 # ──────────────────────────────────────────────

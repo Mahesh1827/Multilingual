@@ -152,8 +152,13 @@ def extract_text_from_pdf(pdf_path: Path) -> list[dict]:
 
         # Extract tables first (works on all pages with text layers)
         if has_text_layer(page):
-            page_tables = extract_tables_from_page(page, page_num + 1)
-            page_data["tables"] = page_tables
+            # 🔥 Skip table detection on massive books to prevent pipeline freeze
+            if len(doc) <= 60:
+                page_tables = extract_tables_from_page(page, page_num + 1)
+                page_data["tables"] = page_tables
+            else:
+                page_tables = []
+                page_data["tables"] = []
 
             # Direct text extraction — fast, no OCR needed
             page_data["text"] = page.get_text("text").strip()

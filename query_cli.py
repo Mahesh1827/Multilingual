@@ -459,6 +459,14 @@ def main():
 
                 if isinstance(result, dict) and "answer" in result:
                     answer_text = result["answer"]
+                    
+                    if detected_lang not in ("en", "unknown") and answer_text:
+                        translator = _get_translator()
+                        translated = translator.english_to_indic(answer_text, detected_lang)
+                        if translated:
+                            answer_text = translated
+                            result["answer"] = answer_text
+
                     voice_history.append({"q": english_query, "a": answer_text})
                     if len(voice_history) > 3:
                         voice_history.pop(0)
@@ -572,8 +580,16 @@ def main():
             continue
 
         # ── Display answer ────────────────────────────────────────
-        # LLM now responds directly in the user's language.
+        # Explicit output translation phase
         answer = result.get("answer", "")
+
+        if response_lang not in ("en", "unknown") and answer:
+            print(f"Translating answer to {_SUPPORTED_LANGS.get(response_lang, response_lang)}...")
+            translator = _get_translator()
+            translated = translator.english_to_indic(answer, response_lang)
+            if translated:
+                answer = translated
+                result["answer"] = answer
 
         # Store English query + answer for follow-up context tracking
         if answer:

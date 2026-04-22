@@ -1,8 +1,8 @@
 """
-Embedding & FAISS Vector Store Module (LangChain)
-Generates embeddings using BGE via LangChain HuggingFaceEmbeddings
-and stores them in a LangChain FAISS vectorstore.
-Also supports Hybrid Search (FAISS + BM25) and reranking.
+Embedding & Qdrant Vector Store Module (LangChain)
+Generates embeddings using the configured multilingual model via LangChain HuggingFaceEmbeddings
+and stores them in a local Qdrant vectorstore.
+Also supports Hybrid Search (Qdrant + BM25) and reranking.
 """
 
 import json
@@ -10,11 +10,20 @@ import logging
 import numpy as np
 from pathlib import Path
 
-from langchain_community.vectorstores import FAISS
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import Distance, VectorParams
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 
-from ocr.config import EMBEDDING_MODEL_NAME, EMBEDDING_DEVICE, VECTOR_STORE_DIR
+from ocr.config import (
+    EMBEDDING_MODEL_NAME, 
+    EMBEDDING_DEVICE, 
+    VECTOR_STORE_DIR, 
+    QDRANT_COLLECTION_NAME,
+    QDRANT_URL,
+    QDRANT_PORT
+)
 
 from sentence_transformers import CrossEncoder
 from rank_bm25 import BM25Okapi
@@ -29,7 +38,6 @@ _reranker = None
 _bm25 = None
 _bm25_corpus = None
 
-FAISS_STORE_DIR = str(VECTOR_STORE_DIR)
 METADATA_PATH = VECTOR_STORE_DIR / "metadata.json"
 
 # ──────────────────────────────────────────────
@@ -71,15 +79,15 @@ def get_reranker():
 
 
 # ──────────────────────────────────────────────
-# Build FAISS + BM25
+# Build Qdrant + BM25
 # ──────────────────────────────────────────────
 
-def build_faiss_index(documents: list[dict]):
+def build_qdrant_index(documents: list[dict]):
 
     global _bm25, _bm25_corpus
 
     if not documents:
-        logger.error("No documents available for FAISS indexing.")
+        logger.error("No documents available for indexing.")
         return None, []
 
     embeddings = get_embedding_model()
@@ -94,10 +102,21 @@ def build_faiss_index(documents: list[dict]):
         for doc in documents
     ]
 
-    logger.info(f"Building FAISS index for {len(lc_docs)} chunks...")
-    vectorstore = FAISS.from_documents(lc_docs, embeddings)
+    logger.info(f"Building Qdrant index (Docker) at {QDRANT_URL}:{QDRANT_PORT}...")
+    
+    # In server mode, we initialize the client and pass it to from_documents
+    client = QdrantClient(url=QDRANT_URL, port=QDRANT_PORT)
+    
+    vectorstore = QdrantVectorStore.from_documents(
+        lc_docs,
+        embeddings,
+        url=QDRANT_URL,
+        port=QDRANT_PORT,
+        collection_name=QDRANT_COLLECTION_NAME,
+        force_recreate=True,
+    )
 
-    logger.info(f"FAISS index built: {vectorstore.index.ntotal} vectors")
+    logger.info("Qdrant index built successfully")
 
     # ─────────────────────────
     # Build BM25 index
@@ -116,124 +135,40 @@ def build_faiss_index(documents: list[dict]):
 
 
 # ──────────────────────────────────────────────
-# Save FAISS
+# Save Qdrant Metadata
 # ──────────────────────────────────────────────
 
-def save_faiss_index(vectorstore, metadata):
+def save_qdrant_index(vectorstore, metadata):
 
     VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
-
-    vectorstore.save_local(FAISS_STORE_DIR)
 
     with open(METADATA_PATH, "w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-    logger.info(f"Saved FAISS index ({vectorstore.index.ntotal} vectors)")
+    logger.info("Saved Qdrant database to disk")
     logger.info(f"Saved metadata ({len(metadata)} entries)")
 
 
 # ──────────────────────────────────────────────
-# Load FAISS
+# Load Qdrant
 # ──────────────────────────────────────────────
 
-def load_faiss_index():
-
-    index_file = Path(FAISS_STORE_DIR) / "index.faiss"
-
-    if not index_file.exists():
-        raise FileNotFoundError(f"FAISS index not found at: {FAISS_STORE_DIR}")
-
+def load_qdrant_index():
+    
     embeddings = get_embedding_model()
 
-    vectorstore = FAISS.load_local(
-        FAISS_STORE_DIR,
-        embeddings,
-        allow_dangerous_deserialization=True,
+    logger.info(f"Connecting to Qdrant Docker at {QDRANT_URL}:{QDRANT_PORT}")
+    client = QdrantClient(url=QDRANT_URL, port=QDRANT_PORT)
+    
+    vectorstore = QdrantVectorStore(
+        client=client,
+        collection_name=QDRANT_COLLECTION_NAME,
+        embedding=embeddings,
     )
 
     with open(METADATA_PATH, "r", encoding="utf-8") as f:
         metadata = json.load(f)
 
-    logger.info(f"Loaded FAISS index: {vectorstore.index.ntotal} vectors")
+    logger.info("Loaded Qdrant index")
 
     return vectorstore, metadata
-
-
-# ──────────────────────────────────────────────
-# Hybrid Search + Reranking
-# ──────────────────────────────────────────────
-
-def search_faiss(query: str, top_k: int = 5):
-
-    vectorstore, _ = load_faiss_index()
-
-    # BGE query instruction
-    instruction = "Represent this sentence for searching relevant passages: "
-    query_embed = instruction + query
-
-    # ─────────────────────────
-    # FAISS semantic search
-    # ─────────────────────────
-
-    faiss_results = vectorstore.similarity_search_with_score(query_embed, k=10)
-
-    docs = [doc for doc, _ in faiss_results]
-
-    # ─────────────────────────
-    # BM25 keyword search
-    # ─────────────────────────
-
-    if _bm25 is not None:
-
-        tokenized_query = query.split()
-
-        scores = _bm25.get_scores(tokenized_query)
-
-        top_idx = np.argsort(scores)[::-1][:5]
-
-        for idx in top_idx:
-            doc = _bm25_corpus[idx]
-
-            docs.append(
-                Document(
-                    page_content=doc["text"],
-                    metadata=doc["metadata"],
-                )
-            )
-
-    # remove duplicates
-    seen = set()
-    unique_docs = []
-
-    for d in docs:
-        if d.page_content not in seen:
-            unique_docs.append(d)
-            seen.add(d.page_content)
-
-    # ─────────────────────────
-    # Reranking
-    # ─────────────────────────
-
-    reranker = get_reranker()
-
-    pairs = [(query, d.page_content) for d in unique_docs]
-
-    scores = reranker.predict(pairs)
-
-    ranked = sorted(
-        zip(unique_docs, scores),
-        key=lambda x: x[1],
-        reverse=True
-    )
-
-    results = []
-
-    for doc, score in ranked[:top_k]:
-
-        results.append({
-            "score": float(score),
-            "text": doc.page_content,
-            "metadata": doc.metadata
-        })
-
-    return results

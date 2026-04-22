@@ -11,7 +11,10 @@ wheels/
 
 # Secrets — never commit
 .env
-*.env.*
+*.env.local
+*.env.production
+# Allow .env.example (it's a safe template, no real keys)
+!.env.example
 
 # Test & coverage artifacts
 .pytest_cache/
@@ -34,3 +37,7 @@ ocr_run.log
 
 # macOS
 .DS_Store
+
+# Large Project Data
+Data_main/
+processed/

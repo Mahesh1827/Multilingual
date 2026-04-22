@@ -31,7 +31,7 @@ _HEAVY = [
     "paddle", "paddlepaddle", "paddleocr",
     "transformers", "accelerate", "sentencepiece",
     "sentence_transformers",
-    "faiss",
+    "qdrant_client",
     "cv2",
     "pdf2image",
 ]

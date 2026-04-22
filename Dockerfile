@@ -28,11 +28,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Upgrade pip once in the builder stage
 RUN pip install --upgrade pip
 
-# ── CPU-only PyTorch (swap URL for CUDA if needed) ──────────
+# ── GPU PyTorch ──────────
 # This is installed separately so Docker layer-caching skips it
 # on re-builds when only source code changes.
 RUN pip install --no-cache-dir \
-    torch --index-url https://download.pytorch.org/whl/cpu
+    torch --index-url https://download.pytorch.org/whl/cu124
 
 # ── Project dependencies ────────────────────────────────────
 COPY requirements.txt .

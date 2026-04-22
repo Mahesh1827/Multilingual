@@ -1,42 +1,53 @@
-# Core
-numpy>=1.26
+# ─────────────────────────────────────────────────────
+# Tirumala Multilingual AI Assistant — Dependencies
+# Install with:  uv sync   (recommended)
+#           OR:  pip install -r requirements.txt
+# NOTE: PyTorch (GPU) is declared in pyproject.toml with
+#       the custom pytorch-cu121 index. Install via uv sync.
+# ─────────────────────────────────────────────────────
+
+# Core utilities
+numpy>=1.26,<2.0
 tqdm>=4.66
 Pillow>=10.0
 opencv-python>=4.10
 python-dotenv>=1.0
 requests>=2.31
 scipy>=1.11
+setuptools
 
-# Documents
+# Document parsing
 pymupdf>=1.24
 pdf2image>=1.17
 python-docx>=1.1
 
-# OCR
-paddlepaddle>=2.6,<3.0
-paddleocr>=3.0
+# OCR  (GPU variant — installed via pyproject.toml / uv sync)
+# paddlepaddle-gpu==2.6.2  ← installed by uv from pyproject.toml
+paddleocr==2.9.1
 
-# VLM
+# ML / Embeddings
 transformers>=4.45
-torch>=2.1
 accelerate>=0.30
 sentencepiece>=0.2
-
-# Embeddings
 sentence-transformers>=3.0
-faiss-cpu>=1.8
+
+# Vector database
+qdrant-client>=1.9
+langchain-qdrant>=0.1
 rank-bm25>=0.2.2
 
-# LangChain
+# LangChain stack
 langchain>=0.3
 langchain-core>=0.3
 langchain-community>=0.3
 langchain-text-splitters>=0.3
 langchain-huggingface>=0.1
 langchain-ollama>=0.2
+langchain-groq>=0.2
 langgraph>=0.2
 
-# Web search
+# LLM / Search APIs
+tavily-python>=0.3
 ddgs
 
 # Web framework
@@ -44,8 +55,10 @@ flask>=3.0
 flask-cors>=4.0
 gunicorn>=22.0
 
-# Language tools
+# Language detection & translation
 langdetect>=1.0.9
+lingua-language-detector>=2.0
 deep-translator>=1.11
 
+# Content extraction (web fallback)
 trafilatura

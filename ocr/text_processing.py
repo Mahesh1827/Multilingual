@@ -4,6 +4,7 @@ Prepares extracted text for embedding and vector storage.
 
 Uses sentence-aware splitting (nltk) to prevent mid-sentence cuts,
 with configurable overlap between adjacent chunks.
+Includes automatic language detection for multilingual metadata.
 """
 
 import re
@@ -11,6 +12,26 @@ import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────
+# Language Detection
+# ──────────────────────────────────────────────
+
+def detect_language(text: str, fallback: str = "en") -> str:
+    """
+    Detect the language of a text string.
+    Returns an ISO 639-1 code (e.g. 'en', 'te', 'hi', 'ta').
+    Falls back to the provided default if detection fails.
+    """
+    if not text or len(text.strip()) < 20:
+        return fallback
+    try:
+        from langdetect import detect
+        lang = detect(text)
+        return lang
+    except Exception:
+        return fallback
+
 
 # ──────────────────────────────────────────────
 # Sentence tokenizer (lazy-loaded)
@@ -127,16 +148,32 @@ def prepare_chunks_with_metadata(
     extraction_method: str,
     chunk_size: int = 600,
     chunk_overlap: int = 120,
+    folder_language: str = "en",
 ) -> list[dict]:
     """
     Clean, chunk, and attach metadata to text.
     Returns a list of dicts ready for embedding.
+    
+    Args:
+        folder_language: ISO 639-1 code inferred from the folder name.
+                         Used as the primary language tag; langdetect is
+                         used as a secondary confirmation.
     """
     cleaned = clean_text(text)
     if not cleaned:
         return []
 
     chunks = chunk_text(cleaned, chunk_size, chunk_overlap)
+
+    # Detect language from the first substantial chunk for confirmation
+    detected_lang = detect_language(cleaned[:500], fallback=folder_language)
+    # Trust folder language as primary, but log mismatches
+    language = folder_language
+    if detected_lang != folder_language and len(cleaned) > 100:
+        logger.debug(
+            f"Language mismatch: folder={folder_language}, detected={detected_lang} "
+            f"in {source_file.name} p.{page_num}. Using folder language."
+        )
 
     documents = []
     for i, chunk in enumerate(chunks):
@@ -150,12 +187,14 @@ def prepare_chunks_with_metadata(
                 "total_chunks": len(chunks),
                 "agent_category": agent_category,
                 "extraction_method": extraction_method,
+                "language": language,
+                "content_type": "text",
             },
         })
 
     logger.info(
         f"{source_file.name} p.{page_num}: {len(chunks)} chunks "
-        f"(cleaned {len(text)} → {len(cleaned)} chars)"
+        f"(cleaned {len(text)} → {len(cleaned)} chars) [lang={language}, method={extraction_method}]"
     )
     return documents
 
@@ -164,6 +203,7 @@ def prepare_table_chunks_with_metadata(
     tables: list[dict],
     source_file: Path,
     agent_category: str,
+    folder_language: str = "en",
 ) -> list[dict]:
     """
     Prepare table data as individual chunks (never split mid-table).
@@ -173,6 +213,7 @@ def prepare_table_chunks_with_metadata(
         tables: list of table dicts from extractors.extract_tables_from_page()
         source_file: Path to the source document
         agent_category: agent category for routing
+        folder_language: ISO 639-1 code inferred from the folder name
     
     Returns:
         list of dicts ready for embedding
@@ -196,11 +237,12 @@ def prepare_table_chunks_with_metadata(
                 "content_type": "table",
                 "table_headers": table.get("headers", []),
                 "table_num_rows": table.get("num_rows", 0),
+                "language": folder_language,
             },
         })
 
     if documents:
         logger.info(
-            f"{source_file.name}: {len(documents)} table chunks prepared"
+            f"{source_file.name}: {len(documents)} table chunks prepared [lang={folder_language}]"
         )
     return documents

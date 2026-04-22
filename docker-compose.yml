@@ -46,6 +46,13 @@ services:
       - vector_store:/app/vector_store
       # Mount the PDF data directory (read-only in API container)
       - ./Data:/app/Data:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     depends_on:
       ollama:
         condition: service_healthy
@@ -75,13 +82,13 @@ services:
       # Persist pulled models between restarts (can be many GB)
       - ollama_data:/root/.ollama
     # Uncomment for GPU support (requires nvidia-docker):
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/"]
       interval: 30s

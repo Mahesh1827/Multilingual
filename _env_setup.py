@@ -14,11 +14,6 @@ from pathlib import Path
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Optional debug (you can remove later)
-print("🔍 ENV CHECK:")
-print("HF_TOKEN:", "FOUND" if os.getenv("HF_TOKEN") else "NOT FOUND")
-print("TAVILY_API_KEY:", "FOUND" if os.getenv("TAVILY_API_KEY") else "NOT FOUND")
-
 
 # ─────────────────────────────────────────────
 # Existing code continues below
@@ -65,28 +60,18 @@ if os.name == "nt":
             os.add_dll_directory(str(p))
 
 # ──────────────────────────────────────────────
-# 3. Import torch FIRST (CRITICAL)
+# 3. DLL paths for torch — torch itself is NOT imported here.
+#    ocr_engine.py imports paddle FIRST, then torch, to avoid the
+#    pybind11 C++ type re-registration clash on Windows.
 # ──────────────────────────────────────────────
-import torch  # noqa: E402
+import sys
+from pathlib import Path as _Path
+_venv_base = _Path(sys.prefix)
+for _p in [_venv_base / "Lib/site-packages/torch/lib",
+            _venv_base / "Lib/site-packages/torch/bin"]:
+    if _p.exists():
+        os.add_dll_directory(str(_p))
 
-# ──────────────────────────────────────────────
-# 4. Force cuDNN + CUDA DLL visibility for Paddle
-# ──────────────────────────────────────────────
-
-import torch
-import os
-from pathlib import Path
-
-# 🔥 Get torch CUDA/cuDNN DLL path
-torch_lib = Path(torch.__file__).parent / "lib"
-
-if torch_lib.exists() and os.name == "nt":
-    # Windows only — add torch DLL path for Paddle CUDA visibility
-    os.environ["PATH"] = str(torch_lib) + ";" + os.environ["PATH"]
-    os.add_dll_directory(str(torch_lib))
-
-print("✅ Torch DLL path added:", torch_lib)
-
-# Optional debug (can remove later)
-print("🔥 CUDA Available:", torch.cuda.is_available())
-print("🔥 CUDA Version:", torch.version.cuda)
+# torch DLL path is registered above via add_dll_directory.
+# torch itself is imported later in ocr_engine.py AFTER paddle boots.
+

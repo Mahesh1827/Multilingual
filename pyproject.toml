@@ -3,26 +3,39 @@ name = "multilingual"
 version = "0.1.0"
 description = "Multilingual AI Assistant for Tirumala - Multi-Agent System"
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "langchain>=0.3.0",
     "langchain-community>=0.3.0",
     "langchain-core>=0.3.0",
+    "langchain-huggingface>=1.2.1",
     "langchain-ollama>=0.2.0",
+    "langchain-qdrant>=1.1.0",
+    "langdetect>=1.0.9",
     "langgraph>=0.2.0",
+    "nltk>=3.9.4",
     "numpy>=1.26.0,<2.0",
+    "opencv-python>=4.11.0.86",
+    "setuptools",
+    "paddleocr==2.9.1",
+    "paddlepaddle-gpu==2.6.2",
+    "pillow>=12.1.1",
+    "pymupdf>=1.27.2.2",
+    "python-docx>=1.2.0",
+    "python-dotenv>=1.2.2",
+    "qdrant-client>=1.17.1",
+    "rank-bm25>=0.2.2",
     "scipy>=1.17.1",
-    "torch>=2.1.0",
-    "torchvision>=0.16.0",
+    "sentence-transformers>=5.4.1",
+    "tqdm>=4.67.3",
+    "transformers>=5.5.4",
+    "torch>=2.5.1",
+    "torchvision>=0.20.1",
 ]
 
 [tool.uv.sources]
-torch = [
-    { index = "pytorch-cu121", marker = "sys_platform == 'win32'" },
-]
-torchvision = [
-    { index = "pytorch-cu121", marker = "sys_platform == 'win32'" },
-]
+torch = { index = "pytorch-cu121" }
+torchvision = { index = "pytorch-cu121" }
 
 [[tool.uv.index]]
 name = "pytorch-cu121"

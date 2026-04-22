@@ -228,61 +228,75 @@ def get_primary_system_prompt(domains: list[str]) -> str:
 # =============================================================================
 # Retriever module
 # =============================================================================
-_faiss_cache: dict = {}
+_vectorstore_cache: dict = {}
 
 def _load_vectorstore_cached():
-    """Load LangChain FAISS vectorstore (cached after first load)."""
-    if "vectorstore" not in _faiss_cache:
-        from ocr.vector_store import load_faiss_index
-        logger.info("Loading LangChain FAISS vectorstore...")
-        vectorstore, metadata = load_faiss_index()
-        _faiss_cache["vectorstore"] = vectorstore
-        _faiss_cache["metadata"]    = metadata
-        logger.info(f"FAISS vectorstore loaded: {vectorstore.index.ntotal} vectors")
-    return _faiss_cache["vectorstore"]
+    """Load Qdrant vectorstore (cached after first load)."""
+    if "vectorstore" not in _vectorstore_cache:
+        from ocr.vector_store import load_qdrant_index
+        logger.info("Loading Qdrant vectorstore...")
+        vectorstore, metadata = load_qdrant_index()
+        _vectorstore_cache["vectorstore"] = vectorstore
+        _vectorstore_cache["metadata"]    = metadata
+        logger.info("Qdrant vectorstore loaded")
+    return _vectorstore_cache["vectorstore"]
 
 def retrieve(
     query: str,
     domains: list[str] | None = None,
     top_k: int = TOP_K_RETRIEVE,
 ) -> list[dict]:
-    """Retrieve the most relevant chunks for a query, then rerank with cross-encoder."""
+    """
+    Retrieve the most relevant chunks for a query from the multilingual
+    Qdrant index, then rerank with cross-encoder.
+    
+    No language filter is applied — the multilingual embedding space
+    naturally returns relevant chunks regardless of their language.
+    """
     try:
         vectorstore = _load_vectorstore_cached()
     except FileNotFoundError:
         logger.error(
-            "FAISS index not found. Run the document processing pipeline first "
-            "(uv run python main.py)."
+            "Qdrant index not found. Run the document processing pipeline first "
+            "(python main.py)."
         )
         return []
 
-    search_k = top_k * 6 if domains else top_k
-    total    = vectorstore.index.ntotal
+    # Multilingual model — no query prefix needed
+    search_k = top_k * 3
 
-    retrieval_query = (
-        "Represent this sentence for searching relevant passages: "
-        + query.strip()
-    )
+    # Multi-language query expansion
+    try:
+        from query.voice_pipeline import IndicTranslator
+        translator = IndicTranslator()
+        expanded_queries = [query]
+        te_query = translator.english_to_indic(query, "te")
+        if te_query and te_query != query:
+            expanded_queries.append(te_query)
+        hi_query = translator.english_to_indic(query, "hi")
+        if hi_query and hi_query != query:
+            expanded_queries.append(hi_query)
+    except Exception as e:
+        logger.warning(f"Query expansion failed: {e}")
+        expanded_queries = [query]
 
-    results_with_scores = vectorstore.similarity_search_with_score(
-        retrieval_query, k=min(search_k, total)
-    )
+    # Collect all candidates — NO language/domain filter
+    candidates_map = {}
+    for q in expanded_queries:
+        results_with_scores = vectorstore.similarity_search_with_score(q, k=search_k)
+        for doc, score in results_with_scores:
+            meta = doc.metadata
+            text = meta.get("text", doc.page_content)
+            if text not in candidates_map:
+                candidates_map[text] = {
+                    "score":    float(score),
+                    "text":     text,
+                    "metadata": meta,
+                }
+    
+    candidates = list(candidates_map.values())
 
-    # Domain filter
-    candidates = []
-    for doc, score in results_with_scores:
-        meta = doc.metadata
-        if domains and meta.get("agent_category", "") not in domains:
-            continue
-        candidates.append({
-            "score":    float(score),
-            "text":     meta.get("text", doc.page_content),
-            "metadata": meta,
-        })
-        if len(candidates) >= top_k:
-            break
-
-    # Cross-encoder reranking: re-score candidates and keep top 3
+    # Cross-encoder reranking: re-score candidates and keep top results
     if len(candidates) > 1:
         try:
             from ocr.vector_store import get_reranker
@@ -295,15 +309,14 @@ def retrieve(
                 c["rerank_score"] = float(rs)
             candidates.sort(key=lambda c: c["rerank_score"], reverse=True)
             
-            # Keep only top 3 with positive rerank score
+            # Keep only top results with positive rerank score
             candidates = [c for c in candidates if c.get("rerank_score", 0) > 0][:TOP_K_FINAL]
             if not candidates:
                 # If reranker rejected everything, keep the best original candidate
                 candidates = sorted(
-                    [{"score": float(s), "text": m.get("text", d.page_content), "metadata": m}
-                     for d, s in results_with_scores[:1] for m in [d.metadata]],
+                    list(candidates_map.values()),
                     key=lambda x: x["score"]
-                )
+                )[:1]
             
             score_strs = [str(round(c.get("rerank_score", 0), 3)) for c in candidates]
             logger.info(
@@ -311,12 +324,14 @@ def retrieve(
                 f"(scores: {score_strs})"
             )
         except Exception as e:
-            logger.warning(f"Reranker failed ({e}); using FAISS ordering.")
+            logger.warning(f"Reranker failed ({e}); using Qdrant ordering.")
             candidates = candidates[:TOP_K_FINAL]
     
+    # Log retrieved languages for debugging
+    retrieved_langs = set(c["metadata"].get("language", "?") for c in candidates)
     logger.info(
         f"Retriever: {len(candidates)} chunks returned "
-        f"(domains={domains}, top_k={top_k})"
+        f"(languages={retrieved_langs}, top_k={top_k})"
     )
     return candidates
 
@@ -355,15 +370,10 @@ has visited many times and loves helping others. Your name is Tirumala Assistant
 When greeting users, use: "{time_greeting}" naturally.
 
 🌐 LANGUAGE RULE (CRITICAL):
-- Detect the language of the user's question automatically.
-- ALWAYS respond in the SAME language as the user spoke.
-  • User writes Telugu → reply in Telugu
-  • User writes Hindi → reply in Hindi
-  • User writes Tamil → reply in Tamil
-  • User writes Kannada → reply in Kannada
-  • User writes English → reply in English
-- If the user explicitly says "tell in English" or "in Telugu", switch to that language immediately.
-- The system provides an English query for RAG retrieval only. Your RESPONSE language must match the user's original language.
+- You MUST ALWAYS ANSWER IN ENGLISH natively.
+- The system will automatically translate your English answer to the user's language afterward.
+- Do NOT attempt to answer in Telugu, Hindi, Tamil, or Kannada. Always use English.
+- Provide pure, natural English text.
 
 🎯 DOMAIN RESTRICTION (STRICT):
 - Answer ONLY questions related to Tirumala:
@@ -480,19 +490,8 @@ def reason(
         context_lines.append(f"[Context {i} | {source} | Page {page}]\n{chunk['text']}")
     context_block = "\n\n".join(context_lines)
 
-    # Direct language instruction — LLM responds in the user's language itself.
-    # No post-translation step needed.
-    if user_lang == "en":
-        lang_hint = ""
-    else:
-        lang_hint = (
-            f"\n\nIMPORTANT: The user's requested language is {lang_name}. "
-            f"You MUST write your entire response strictly using the NATIVE official alphabet/script of the {lang_name} language "
-            f"(e.g., Devanagari script for Hindi, Telugu script for Telugu, etc.). "
-            f"Under NO circumstances should you use Latin/English characters (Romanization/Hinglish) to write {lang_name} words, "
-            f"even if the user's original message used English letters. "
-            f"Your output must be purely in {lang_name} script natively. Do NOT answer in English."
-        )
+    # Enforce English generation internally, translated globally later
+    lang_hint = ""
 
     effective_system = system_prompt if system_prompt is not None else SYSTEM_PROMPT
     # Rebuild with fresh time-based greeting if using default prompt
