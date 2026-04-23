@@ -44,8 +44,18 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────
 _CACHE_FILE      = Path(__file__).resolve().parents[2] / ".cache" / "faq_cache.json"
 _EMBEDDINGS_FILE = Path(__file__).resolve().parents[2] / ".cache" / "faq_embeddings.json"
-_CACHE_TTL_DAYS  = 30           # Expire entries older than this
-_CACHE_MAX_SIZE  = 5000         # Eviction cap
+
+# Import centralized config (with safe fallbacks for standalone testing)
+try:
+    from query.config import FAQ_CACHE_TTL_DAYS, FAQ_CACHE_MAX_SIZE, TTD_HELPLINE, TTD_WEBSITE, ASSISTANT_NAME
+    _CACHE_TTL_DAYS  = FAQ_CACHE_TTL_DAYS
+    _CACHE_MAX_SIZE  = FAQ_CACHE_MAX_SIZE
+except ImportError:
+    _CACHE_TTL_DAYS  = 30
+    _CACHE_MAX_SIZE  = 5000
+    TTD_HELPLINE     = "1800-425-1333"
+    TTD_WEBSITE      = "https://tirupatibalaji.ap.gov.in"
+    ASSISTANT_NAME   = "Govinda"
 
 # ──────────────────────────────────────────────
 # Similarity thresholds
@@ -99,6 +109,13 @@ _FAILURE_PHRASES = [
     "i'm not sure about that",
     "answer is empty or contains only stopwords",
     "contains only stopwords",
+    "don't have specific information",
+    "please contact ttd directly",
+    "encountered an issue",
+    "temporary issue processing",
+    "i don't have that",
+    "specific detail right now",
+    "not fully supported by",
 ]
 
 # Noise words to strip from queries before matching
@@ -349,7 +366,7 @@ def lookup_cache(question: str, language: str = "en") -> tuple[str | None, float
         # ── Strategy 1: Semantic embedding similarity ──
         if query_embedding is not None:
             cached_embedding = entry.get("embedding")
-            if cached_embedding is not None:
+            if cached_embedding is not None and len(cached_embedding) == len(query_embedding):
                 sem_score = _cosine_similarity(query_embedding, cached_embedding)
 
                 # Apply temporal penalty to semantic scores too
@@ -537,6 +554,64 @@ def get_cache_stats() -> dict:
     }
 
 
+def get_cache_health() -> dict:
+    """Return production health metrics for the FAQ cache.
+
+    Metrics:
+        staleness_ratio: fraction of entries older than half the TTL
+        embedding_coverage: fraction of entries with embeddings
+        eviction_pressure: how close to max capacity (0.0 = empty, 1.0 = full)
+        health_grade: A/B/C/D overall assessment
+    """
+    cache = _load_cache()
+    if not cache:
+        return {
+            "health_grade": "A",
+            "staleness_ratio": 0.0,
+            "embedding_coverage": 1.0,
+            "eviction_pressure": 0.0,
+            "size": 0,
+        }
+
+    now = datetime.now()
+    half_ttl = timedelta(days=_CACHE_TTL_DAYS / 2)
+    stale_count = 0
+    embedded_count = 0
+
+    for entry in cache:
+        ts_str = entry.get("timestamp")
+        if ts_str:
+            try:
+                if datetime.fromisoformat(ts_str) < (now - half_ttl):
+                    stale_count += 1
+            except (ValueError, TypeError):
+                stale_count += 1
+        if entry.get("embedding"):
+            embedded_count += 1
+
+    staleness = stale_count / len(cache)
+    coverage = embedded_count / len(cache)
+    pressure = len(cache) / _CACHE_MAX_SIZE
+
+    # Grade: A (healthy), B (watch), C (degraded), D (critical)
+    if staleness < 0.2 and coverage > 0.8 and pressure < 0.7:
+        grade = "A"
+    elif staleness < 0.4 and coverage > 0.5:
+        grade = "B"
+    elif staleness < 0.6 or coverage < 0.3:
+        grade = "C"
+    else:
+        grade = "D"
+
+    return {
+        "health_grade": grade,
+        "staleness_ratio": round(staleness, 3),
+        "embedding_coverage": round(coverage, 3),
+        "eviction_pressure": round(pressure, 3),
+        "size": len(cache),
+    }
+
+
 # ──────────────────────────────────────────────
 # FAQ Agent logic
 # ──────────────────────────────────────────────
@@ -567,13 +642,17 @@ def faq_agent(query: str, language: str = "en") -> str | None:
     # 1. Greetings
     if any(word in q.split() for word in _GREETINGS):
         return (
-            f"{time_greeting}! 🙏 Welcome to the Tirumala Assistant.\n"
-            "How can I help you today? Feel free to ask me anything about darshan, "
-            "sevas, festivals, temple history, accommodation, or travel to Tirumala."
+            f"Jai Balaji 🙏 {time_greeting}! Welcome, devotee.\n"
+            "I am Govinda, your Tirumala assistant. How can I serve you today?\n"
+            "Feel free to ask me about darshan, sevas, festivals, temple history, "
+            "accommodation, or travel to Tirumala."
         )
     # 2. Thanks
     if any(phrase in q for phrase in _THANKS):
-        return "You're most welcome! Is there anything else I can help you with about Tirumala?"
+        return (
+            "You're most welcome! Jai Balaji 🙏\n"
+            "Is there anything else I can help you with about Tirumala?"
+        )
 
     # 3. Meta questions
     for phrase, response in _META.items():
@@ -600,7 +679,7 @@ def faq_agent(query: str, language: str = "en") -> str | None:
         return (
             "I can only help with Tirumala-related information. "
             "Feel free to ask me about darshan timings, temple history, sevas, festivals, "
-            "accommodation, or pilgrimage guidance!"
+            "accommodation, or pilgrimage guidance! Jai Balaji 🙏"
         )
 
     # 6. In-scope but not cached → let RAG handle it

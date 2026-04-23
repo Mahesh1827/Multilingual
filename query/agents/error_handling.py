@@ -74,6 +74,28 @@ _breaker = CircuitBreaker(threshold=3, cooldown=60.0)
 
 
 # ─────────────────────────────────────────────
+# Error Counters (for monitoring / metrics)
+# ─────────────────────────────────────────────
+_error_counts: dict[str, int] = {}
+_total_calls: dict[str, int] = {}
+
+
+def get_error_stats() -> dict:
+    """Return per-agent error counts and success rates for monitoring."""
+    stats = {}
+    for agent in set(list(_error_counts.keys()) + list(_total_calls.keys())):
+        total = _total_calls.get(agent, 0)
+        errors = _error_counts.get(agent, 0)
+        stats[agent] = {
+            "total_calls": total,
+            "errors": errors,
+            "success_rate": round(1.0 - (errors / max(total, 1)), 3),
+            "circuit_open": _breaker.is_open(agent),
+        }
+    return stats
+
+
+# ─────────────────────────────────────────────
 # Retryable exception detection
 # ─────────────────────────────────────────────
 
@@ -119,12 +141,19 @@ def safe_agent_call(
     def decorator(fn: Callable):
         @functools.wraps(fn)
         def wrapper(state: dict) -> dict:
+            # Track total calls
+            _total_calls[agent_name] = _total_calls.get(agent_name, 0) + 1
+
             # Circuit breaker: skip if tripped
             if _breaker.is_open(agent_name):
                 logger.warning(f"⚡ [Error Handler] {agent_name} circuit open — skipping.")
+                _error_counts[agent_name] = _error_counts.get(agent_name, 0) + 1
                 return {
                     **fallback_state,
-                    "error": f"{agent_name} temporarily disabled (circuit breaker).",
+                    "error": (
+                        "I'm having a temporary issue processing your request. "
+                        "Please try again in a moment. Jai Balaji 🙏"
+                    ),
                 }
 
             last_exc = None
@@ -144,7 +173,11 @@ def safe_agent_call(
                         message=str(exc),
                         is_retryable=_is_retryable(exc),
                     )
-                    logger.error(f"❌ [Error Handler] {err} (attempt {attempt}/{attempts})")
+                    # Use WARNING for retryable, ERROR for non-retryable
+                    if _is_retryable(exc):
+                        logger.warning(f"⚠️ [Error Handler] {err} (attempt {attempt}/{attempts}, retryable)")
+                    else:
+                        logger.error(f"❌ [Error Handler] {err} (attempt {attempt}/{attempts}, non-retryable)")
 
                     if _is_retryable(exc) and attempt < attempts:
                         logger.info(f"🔄 [Error Handler] Retrying {agent_name} in {retry_delay}s...")
@@ -155,13 +188,17 @@ def safe_agent_call(
 
             # All attempts exhausted
             _breaker.record_failure(agent_name)
+            _error_counts[agent_name] = _error_counts.get(agent_name, 0) + 1
             logger.error(
                 f"💀 [Error Handler] {agent_name} failed after {attempts} attempt(s). "
-                f"Returning fallback state."
+                f"Error: {last_exc}"
             )
             return {
                 **fallback_state,
-                "error": f"{agent_name} failed: {last_exc}",
+                "error": (
+                    "I encountered an issue while looking that up for you. "
+                    "Please try rephrasing your question. Jai Balaji 🙏"
+                ),
             }
 
         return wrapper

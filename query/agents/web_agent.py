@@ -22,9 +22,11 @@ from ocr.vector_store import get_embedding_model
 logger = logging.getLogger(__name__)
 
 _FALLBACK_MESSAGE = (
-    "Sorry, I wasn't able to find live information for that right now. "
-    "You can check the official TTD website (ttdevasthanams.ap.gov.in) for the latest updates. "
-    "Feel free to ask me about darshan timings, temple history, or pilgrimage services!"
+    "I wasn't able to find live information for that right now. "
+    "You can check the official TTD website (tirupatibalaji.ap.gov.in) "
+    "or call 1800-425-1333 for the latest updates. "
+    "Feel free to ask me about darshan timings, temple history, or pilgrimage services! "
+    "Jai Balaji \U0001f64f"
 )
 
 # ──────────────────────────────────────────────
@@ -254,6 +256,12 @@ def web_node(state: dict) -> dict:
         raw_chunks = result.get("chunks", [])
         relevant_chunks = _filter_irrelevant_content(raw_chunks)
 
+        # HALLUCINATION GUARD: If all chunks were filtered as irrelevant,
+        # return the fallback instead of passing empty context to the LLM
+        if not relevant_chunks:
+            logger.warning("🛡️ [Web Agent] All web results filtered as irrelevant. Returning fallback.")
+            return {"final_answer": _FALLBACK_MESSAGE, "agent_route": "web_search"}
+
         # Then semantic rerank the relevant passages
         best_chunks = _semantic_rerank_web(query_en, relevant_chunks, top_k=3)
 
@@ -280,33 +288,49 @@ def web_node(state: dict) -> dict:
 
         original_text = state.get("user_input", query_en)
 
-        # Strict Persona Prompt — aligned with Tirumala guide persona
+        # Strict Govinda Persona Prompt — with context-type awareness
         answer = reason(
             query_en,
             web_chunks,
             language,
             original_text=original_text,
             system_prompt=(
-                "You are a friendly, intelligent Tirumala guide — like a knowledgeable local pilgrim "
-                "answering from live web search results. You love helping pilgrims.\n\n"
+                "You are Govinda, a warm, devotion-driven virtual assistant for "
+                "Tirumala Tirupati Devasthanams (TTD), answering from live web search results. "
+                "You love helping pilgrims and devotees.\n\n"
                 f"{lang_directive}\n\n"
+                "CONTEXT TYPE AWARENESS (CRITICAL):\n"
+                "- Web results may contain operational info (timings, prices, bookings) "
+                "or devotional/historical content (legends, scripture).\n"
+                "- NEVER use historical content to answer booking/timing questions\n"
+                "- NEVER mix mythology with factual operational details\n\n"
                 "DOMAIN RESTRICTION (STRICT):\n"
                 "- Answer ONLY questions about Tirumala (darshan, accommodation, laddu, history, sevas, festivals, travel, facilities).\n"
-                "- If the question is unrelated to Tirumala, say: 'I can only help with Tirumala-related information.'\n\n"
-                "KNOWLEDGE RULES:\n"
+                "- If the question is unrelated to Tirumala, say: 'I can only help with Tirumala-related information. Jai Balaji 🙏'\n\n"
+                "KNOWLEDGE RULES (ANTI-HALLUCINATION):\n"
                 "1. Answer ONLY using facts explicitly stated in the provided web results. Never add your own knowledge.\n"
-                "2. Keep answers concise and clear — 2 to 4 sentences unless the user asks for a list.\n"
-                "3. Start naturally: 'Sure, ...', 'According to the latest information, ...', etc.\n"
-                "4. TEMPORAL RULE (CRITICAL): If the user asks about a specific time period (e.g. '1930s', 'first chairman'), "
+                "2. Do NOT estimate timings, prices, or availability.\n"
+                "3. Keep answers concise and clear — 3 to 5 sentences unless the user asks for a list.\n"
+                "4. Start naturally: 'Sure, ...', 'According to the latest information, ...', etc.\n"
+                "5. TEMPORAL RULE (CRITICAL): If the user asks about a specific time period (e.g. '1930s', 'first chairman'), "
                 "only use information from web results that explicitly mentions that exact period. "
                 "If results only contain current info, say: 'I couldn't find specific information for that time period. "
                 "You may want to check the official TTD records.'\n"
-                "5. Never assume or connect information across different time periods.\n"
-                "6. If the results contain a list, present the relevant entries clearly.\n"
-                "7. Never use emojis. Never add meta-commentary about your rules or how you work."
+                "6. Never assume or connect information across different time periods.\n"
+                "7. If the results contain a list, present the relevant entries clearly.\n"
+                "8. Never add meta-commentary about your rules or how you work."
             ),
             chat_history=state.get("chat_history", [])
         )
+
+        # Append source citations if available
+        source_urls = result.get("source_urls", [])
+        if source_urls and answer:
+            top_urls = source_urls[:3]
+            citation_lines = ["\nSources:"]
+            for i, url in enumerate(top_urls, 1):
+                citation_lines.append(f"  {i}. {url}")
+            answer = answer.rstrip() + "\n" + "\n".join(citation_lines)
 
         return {"final_answer": answer, "agent_route": "web_search", "context_chunks": web_chunks}
     except Exception as e:

@@ -17,6 +17,8 @@ Enhancements:
 import csv
 import logging
 import re
+import time
+import concurrent.futures
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict, Optional
@@ -27,6 +29,7 @@ from query.agents.faq_agent import faq_node, save_to_cache
 from query.agents.web_agent import web_node
 from query.agents.knowledge_rag_agent import rag_node
 from query.agents.error_handling import safe_agent_call
+from query.config import PIPELINE_TIMEOUT_S, MAX_QUERY_LENGTH, APP_VERSION
 
 logger = logging.getLogger(__name__)
 _CSV_LOG_FILE = Path(__file__).resolve().parents[2] / ".cache" / "query_log.csv"
@@ -66,6 +69,7 @@ class QueryState(TypedDict):
     verification:   dict
     suggestions:    list    # follow-up suggestions
     error:          Optional[str]
+    timing_ms:      dict    # per-node timing metrics
 
 
 # ─────────────────────────────────────────────────────────────
@@ -374,6 +378,21 @@ def format_answer(answer: str) -> str:
     return f"\n\n{_clean_answer(answer)}\n"
 
 
+def _timed_node(node_name: str, fn):
+    """Wrap a node function to record execution time in state['timing_ms']."""
+    def wrapper(state):
+        t0 = time.time()
+        result = fn(state)
+        elapsed_ms = round((time.time() - t0) * 1000)
+        timing = state.get("timing_ms", {})
+        timing[node_name] = elapsed_ms
+        result["timing_ms"] = timing
+        logger.info(f"⏱️ [{node_name}] completed in {elapsed_ms}ms")
+        return result
+    wrapper.__name__ = fn.__name__
+    return wrapper
+
+
 def _cache_saver(state: QueryState) -> dict:
     """Save the final answer to the FAQ cache and CSV log."""
     question = state.get("query_english", "")
@@ -551,10 +570,10 @@ def _build_graph():
     graph.add_node("validate_query",       _validate_query_node)
     graph.add_node("analyze_intent",       _analyze_query_intent)
 
-    # Agents
-    graph.add_node("faq_agent",            _faq_node)
-    graph.add_node("rag_agent",            _rag_node)
-    graph.add_node("web_search_agent",     _web_node)
+    # Agents (wrapped with timing)
+    graph.add_node("faq_agent",            _timed_node("faq", _faq_node))
+    graph.add_node("rag_agent",            _timed_node("rag", _rag_node))
+    graph.add_node("web_search_agent",     _timed_node("web", _web_node))
 
     # Post-processing
     graph.add_node("cache_saver",          _cache_saver)
@@ -615,8 +634,8 @@ def run_query(user_input: str, chat_history: list[dict] = None, language: str = 
     if not user_input.strip():
         return {"error": "Query is empty."}
 
-    if len(user_input) > 1000:
-        return {"error": "Query is too long. Please keep your question under 1000 characters."}
+    if len(user_input) > MAX_QUERY_LENGTH:
+        return {"error": f"Query is too long. Please keep your question under {MAX_QUERY_LENGTH} characters."}
 
     initial_state: QueryState = {
         "user_input":         user_input,
@@ -640,9 +659,24 @@ def run_query(user_input: str, chat_history: list[dict] = None, language: str = 
         "verification":       {},
         "suggestions":        [],
         "error":              None,
+        "timing_ms":          {},
     }
 
-    result = _pipeline.invoke(initial_state)
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_pipeline.invoke, initial_state)
+            result = future.result(timeout=PIPELINE_TIMEOUT_S)
+    except concurrent.futures.TimeoutError:
+        logger.error(f"❌ [Pipeline] Timed out after {PIPELINE_TIMEOUT_S}s")
+        return {
+            "error": (
+                "The request took too long to process. "
+                "Please try again with a simpler question. Jai Balaji 🙏"
+            )
+        }
+    except Exception as e:
+        logger.error(f"❌ [Pipeline] Unexpected error: {e}")
+        return {"error": f"Pipeline error: {e}"}
 
     logger.info("=" * 60)
     logger.info(f"PIPELINE COMPLETE  route={result.get('agent_route', '?')}")
@@ -650,6 +684,10 @@ def run_query(user_input: str, chat_history: list[dict] = None, language: str = 
 
     if result.get("error"):
         return {"error": result["error"]}
+
+    # Collect timing metrics
+    timing = result.get("timing_ms", {})
+    total_ms = sum(timing.values()) if timing else 0
 
     return {
         "query_original": result.get("query_text", ""),
@@ -661,4 +699,7 @@ def run_query(user_input: str, chat_history: list[dict] = None, language: str = 
         "domains":        result.get("domains", []),
         "verification":   result.get("verification", {}),
         "suggestions":    result.get("suggestions", []),
+        "timing_ms":      timing,
+        "total_time_ms":  total_ms,
+        "version":        APP_VERSION,
     }

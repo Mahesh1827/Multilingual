@@ -31,7 +31,7 @@ _KNOWN_WORDS = frozenset([
     "and", "but", "if", "not", "no", "yes", "please", "tell", "give", "show",
     "explain", "list", "name", "names", "much", "long", "far", "any", "all",
     "number", "total", "type", "types", "mean", "means", "called",
-    # Tirumala / TTD domain
+    # Tirumala / TTD domain — expanded
     "tirumala", "tirupati", "venkateswara", "venkatachalam", "seshachalam",
     "vedachalam", "garudachalam", "anjanachalam", "narayanachalam",
     "ttd", "balaji", "temple", "darshan", "seva", "prasadam", "laddu", "laddoo",
@@ -40,6 +40,17 @@ _KNOWN_WORDS = frozenset([
     "distance", "height", "altitude", "history", "famous", "located", "location",
     "reach", "route", "bus", "train", "helicopter", "entry",
     "context",  # added by _prepare_query
+    # Additional TTD domain terms
+    "annadanam", "suprabhatam", "vaikunta", "ekadasi", "kalyanotsavam",
+    "hundi", "cottages", "srivari", "govinda", "saptagiri", "alipiri",
+    "tiruchanur", "padmavathi", "srinivasa", "mangapuram", "devasthanam",
+    "accommodation", "lodge", "guest", "house", "room", "queue", "virtual",
+    "special", "free", "paid", "online", "offline", "token", "counter",
+    "dress", "code", "rules", "mobile", "phone", "camera", "allowed",
+    "food", "canteen", "meals", "breakfast", "lunch", "dinner",
+    "donation", "offering", "calendar", "festival", "annual", "daily",
+    "morning", "evening", "night", "open", "close", "closed",
+    "walk", "steps", "footpath", "ghat", "road", "parking",
 ])
 
 # ─────────────────────────────────────────────────────────────

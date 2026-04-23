@@ -93,3 +93,22 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
 # Web Search
 # ──────────────────────────────────────────────
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+# ──────────────────────────────────────────────
+# Production Settings
+# ──────────────────────────────────────────────
+APP_VERSION            = "2.0.0"
+ASSISTANT_NAME         = "Govinda"
+PIPELINE_TIMEOUT_S     = 60        # max seconds for full pipeline run
+FAQ_CACHE_TTL_DAYS     = 30          # cache expiry
+FAQ_CACHE_MAX_SIZE     = 10000        # max cached Q&A pairs
+MAX_QUERY_LENGTH       = 2000        # reject queries longer than this
+TTD_HELPLINE           = "1800-425-4141"
+TTD_WEBSITE            = "https://tirupatibalaji.ap.gov.in"
+
+# Govinda persona fallback string — must be deterministic for downstream matching
+GOVINDA_FALLBACK_ANSWER = (
+    "I don't have specific information on this right now. "
+    f"Please contact TTD directly at {TTD_HELPLINE} or visit {TTD_WEBSITE} "
+    "for the latest details. Jai Balaji 🙏"
+)
