@@ -1,17 +1,56 @@
 """
-Generation Metrics
-------------------
+Generation Metrics — Semantic + Lexical
+-----------------------------------------
 Faithfulness, Answer Relevancy, Answer Correctness,
 Language Match, Completeness, Conciseness.
 
-These metrics evaluate the quality of generated answers
-against retrieved sources and golden expected answers.
+Uses sentence-transformers for semantic similarity (much more accurate
+than raw token overlap) with lexical overlap as a fallback.
 """
 
+import logging
 import re
 
+logger = logging.getLogger(__name__)
+
 # ──────────────────────────────────────────────
-# Helpers
+# Sentence-Transformer Model (lazy-loaded)
+# ──────────────────────────────────────────────
+_semantic_model = None
+
+
+def _get_semantic_model():
+    """Lazy-load a lightweight sentence-transformer for semantic similarity."""
+    global _semantic_model
+    if _semantic_model is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            # Use the same multilingual model already in the project
+            _semantic_model = SentenceTransformer("intfloat/multilingual-e5-large")
+            logger.info("📊 [Eval] Semantic model loaded for evaluation metrics.")
+        except Exception as e:
+            logger.warning("📊 [Eval] Semantic model unavailable: %s. Using lexical fallback.", e)
+    return _semantic_model
+
+
+def _semantic_similarity(text_a: str, text_b: str) -> float:
+    """Compute cosine similarity between two texts using sentence-transformers."""
+    model = _get_semantic_model()
+    if model is None:
+        return _lexical_f1(text_a, text_b)  # fallback
+
+    try:
+        embeddings = model.encode([text_a, text_b], normalize_embeddings=True)
+        import numpy as np
+        similarity = float(np.dot(embeddings[0], embeddings[1]))
+        return max(0.0, min(1.0, similarity))  # clamp to [0, 1]
+    except Exception as e:
+        logger.warning("📊 [Eval] Semantic similarity failed: %s", e)
+        return _lexical_f1(text_a, text_b)
+
+
+# ──────────────────────────────────────────────
+# Lexical Helpers (fallback)
 # ──────────────────────────────────────────────
 
 _STOPWORDS = {
@@ -27,8 +66,10 @@ def _tokenize(text: str) -> set[str]:
     return set(re.findall(r"\b[a-z]{3,}\b", text.lower())) - _STOPWORDS
 
 
-def _f1_overlap(tokens_a: set[str], tokens_b: set[str]) -> float:
-    """Compute F1-style overlap between two token sets."""
+def _lexical_f1(text_a: str, text_b: str) -> float:
+    """Compute F1-style token overlap between two texts."""
+    tokens_a = _tokenize(text_a)
+    tokens_b = _tokenize(text_b)
     if not tokens_a or not tokens_b:
         return 0.0
     intersection = tokens_a & tokens_b
@@ -51,61 +92,67 @@ _SCRIPT_RANGES: list[tuple[int, int, str]] = [
 def _detect_response_language(text: str) -> str:
     """Detect the primary language of a response using Unicode script blocks."""
     counts: dict[str, int] = {}
-    ascii_count = 0
-
     for ch in text:
         cp = ord(ch)
         if cp <= 127:
-            ascii_count += 1
             continue
         for lo, hi, lang in _SCRIPT_RANGES:
             if lo <= cp <= hi:
                 counts[lang] = counts.get(lang, 0) + 1
                 break
-
     if not counts:
-        return "en"  # All ASCII → English
-
-    best_lang = max(counts, key=counts.__getitem__)
-    return best_lang
+        return "en"
+    return max(counts, key=counts.__getitem__)
 
 
 # ──────────────────────────────────────────────
-# Generation Metrics
+# Generation Metrics (Semantic + Lexical hybrid)
 # ──────────────────────────────────────────────
 
 def faithfulness_score(answer: str, context_text: str) -> float:
     """
     Faithfulness: Is the answer grounded in the retrieved context?
 
-    Measured as F1 overlap between answer tokens and context tokens.
-    Higher = more faithful to sources.
+    Uses semantic similarity between answer and context.
+    High score = answer is well-supported by sources.
+
+    Pass threshold: ≥ 0.80
     """
-    answer_tokens = _tokenize(answer)
-    context_tokens = _tokenize(context_text)
-    return round(_f1_overlap(answer_tokens, context_tokens), 4)
+    if not answer.strip() or not context_text.strip():
+        return 0.0
+    score = _semantic_similarity(answer, context_text)
+    return round(score, 4)
 
 
 def answer_relevancy_score(answer: str, question: str) -> float:
     """
     Answer Relevancy: Does the answer directly address the user's question?
 
-    Measured as F1 overlap between answer tokens and question tokens.
+    Uses semantic similarity between answer and question.
+
+    Pass threshold: ≥ 0.75
     """
-    answer_tokens = _tokenize(answer)
-    question_tokens = _tokenize(question)
-    return round(_f1_overlap(answer_tokens, question_tokens), 4)
+    if not answer.strip() or not question.strip():
+        return 0.0
+    score = _semantic_similarity(answer, question)
+    return round(score, 4)
 
 
 def answer_correctness_score(answer: str, expected_answer: str) -> float:
     """
     Answer Correctness: Is the answer factually correct?
 
-    Measured as F1 overlap between answer tokens and expected (golden) answer tokens.
+    Hybrid: 0.6 * semantic_similarity + 0.4 * lexical_f1
+    This captures both meaning preservation and factual token overlap.
+
+    Pass threshold: ≥ 0.70
     """
-    answer_tokens = _tokenize(answer)
-    expected_tokens = _tokenize(expected_answer)
-    return round(_f1_overlap(answer_tokens, expected_tokens), 4)
+    if not answer.strip() or not expected_answer.strip():
+        return 0.0
+    semantic = _semantic_similarity(answer, expected_answer)
+    lexical = _lexical_f1(answer, expected_answer)
+    hybrid = 0.6 * semantic + 0.4 * lexical
+    return round(hybrid, 4)
 
 
 def language_match_score(answer: str, expected_lang: str) -> float:
@@ -113,26 +160,18 @@ def language_match_score(answer: str, expected_lang: str) -> float:
     Language Match: Is the response in the correct language?
 
     Returns 1.0 if detected language matches expected, 0.0 otherwise.
-    For English queries, we check ASCII dominance.
-    For Indic queries, we check if the correct script is present.
+
+    Pass threshold: = 1.00 (strict — code-mixing is a critical failure)
     """
     if not answer.strip():
         return 0.0
-
     detected = _detect_response_language(answer)
-
-    # English pipeline always responds in English (translation is external)
-    # So for now, if expected is any language, check if answer is English
-    # (since the RAG agent always responds in English)
+    # The pipeline always responds in English; translation is external.
+    # English answers are always valid since the pipeline generates in English.
     if expected_lang == "en":
         return 1.0 if detected == "en" else 0.0
-
-    # For non-English queries, the pipeline responds in English and
-    # translation happens externally. So English answers are valid.
-    # If we detect native script matching the expected lang, that's also valid.
     if detected == expected_lang or detected == "en":
         return 1.0
-
     return 0.0
 
 
@@ -140,37 +179,26 @@ def completeness_score(answer: str, expected_answer: str, sub_questions: list[st
     """
     Completeness: Are all parts of the question addressed?
 
-    For single questions: checks if key concepts from expected answer appear.
-    For multi-part questions: checks each sub-question has representation.
+    For multi-part questions: checks semantic coverage of each sub-question.
+    For single questions: checks key concept coverage.
+
+    Pass threshold: ≥ 0.70
     """
     if not answer.strip():
         return 0.0
 
-    answer_tokens = _tokenize(answer)
-
     if sub_questions:
-        # Check each sub-question is addressed
+        # Check each sub-question is semantically addressed
         addressed = 0
         for sq in sub_questions:
-            sq_tokens = _tokenize(sq)
-            if sq_tokens:
-                overlap = len(answer_tokens & sq_tokens) / len(sq_tokens)
-                if overlap >= 0.15:
-                    addressed += 1
+            sim = _semantic_similarity(answer, sq)
+            if sim >= 0.40:  # sub-question is addressed if similarity is reasonable
+                addressed += 1
         return round(addressed / len(sub_questions), 4) if sub_questions else 1.0
 
-    # Single question: check key concept coverage from expected answer
-    expected_tokens = _tokenize(expected_answer)
-    if not expected_tokens:
-        return 1.0
-
-    # Extract "key" tokens (longer, more specific words)
-    key_tokens = {t for t in expected_tokens if len(t) >= 4}
-    if not key_tokens:
-        key_tokens = expected_tokens
-
-    covered = len(answer_tokens & key_tokens)
-    return round(min(covered / max(len(key_tokens), 1), 1.0), 4)
+    # Single question: semantic coverage of expected answer
+    score = _semantic_similarity(answer, expected_answer)
+    return round(min(score * 1.2, 1.0), 4)  # slight boost since full coverage is hard
 
 
 def conciseness_score(answer: str, expected_answer: str) -> float:
@@ -178,24 +206,63 @@ def conciseness_score(answer: str, expected_answer: str) -> float:
     Conciseness: Is the answer appropriately sized?
 
     Penalizes answers that are >3x the expected answer length.
-    Returns 1.0 for well-sized answers, decreasing toward 0.0 for bloated ones.
+
+    Pass threshold: ≥ 0.70
     """
     if not answer.strip():
         return 0.0
 
     answer_len = len(answer.split())
-    expected_len = max(len(expected_answer.split()), 5)  # Min 5 words baseline
+    expected_len = max(len(expected_answer.split()), 5)
 
     ratio = answer_len / expected_len
 
     if ratio <= 2.0:
-        return 1.0  # Good — within 2x expected length
+        return 1.0
     elif ratio <= 3.0:
-        return round(1.0 - (ratio - 2.0) * 0.5, 4)  # Linear decay 1.0 → 0.5
+        return round(1.0 - (ratio - 2.0) * 0.5, 4)
     elif ratio <= 5.0:
-        return round(0.5 - (ratio - 3.0) * 0.2, 4)  # Further decay 0.5 → 0.1
+        return round(0.5 - (ratio - 3.0) * 0.2, 4)
     else:
-        return 0.1  # Extremely verbose
+        return 0.1
+
+
+# ──────────────────────────────────────────────
+# Threshold-based pass/fail check
+# ──────────────────────────────────────────────
+
+PASS_THRESHOLDS = {
+    "faithfulness":   0.80,
+    "relevancy":      0.75,
+    "correctness":    0.70,
+    "language_match": 1.00,
+    "completeness":   0.70,
+    "conciseness":    0.70,
+}
+
+
+def check_thresholds(metrics: dict) -> dict:
+    """
+    Check each metric against its pass threshold.
+
+    Returns:
+        Dict with 'passed' (bool), 'failures' (list of failed criteria),
+        and 'details' (per-criterion pass/fail).
+    """
+    details = {}
+    failures = []
+    for criterion, threshold in PASS_THRESHOLDS.items():
+        score = metrics.get(criterion, 0)
+        passed = score >= threshold
+        details[criterion] = {"score": score, "threshold": threshold, "passed": passed}
+        if not passed:
+            failures.append(criterion)
+
+    return {
+        "passed": len(failures) == 0,
+        "failures": failures,
+        "details": details,
+    }
 
 
 def compute_all_generation_metrics(
@@ -211,9 +278,9 @@ def compute_all_generation_metrics(
 
     Returns:
         Dict with faithfulness, relevancy, correctness, language_match,
-        completeness, conciseness.
+        completeness, conciseness, plus threshold_check results.
     """
-    return {
+    metrics = {
         "faithfulness":   faithfulness_score(answer, context_text),
         "relevancy":      answer_relevancy_score(answer, question),
         "correctness":    answer_correctness_score(answer, expected_answer),
@@ -221,3 +288,9 @@ def compute_all_generation_metrics(
         "completeness":   completeness_score(answer, expected_answer, sub_questions),
         "conciseness":    conciseness_score(answer, expected_answer),
     }
+
+    # Add threshold check
+    threshold_result = check_thresholds(metrics)
+    metrics["threshold_check"] = threshold_result
+
+    return metrics

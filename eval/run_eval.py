@@ -31,7 +31,7 @@ from query.agents.pipeline import run_query
 
 from eval.metrics.retrieval_metrics import compute_all_retrieval_metrics
 from eval.metrics.generation_metrics import compute_all_generation_metrics
-from eval.judge import llm_judge_score, judge_confidence_label
+from eval.judge import llm_judge_score, judge_confidence_label, classify_query_type
 from eval.eval_logger import generate_log_block, detect_query_theme
 
 # ──────────────────────────────────────────────
@@ -105,6 +105,13 @@ def evaluate_single(
         # ── Confidence ──
         confidence = judge_confidence_label(generation)
 
+        # ── Query classification ──
+        query_type = classify_query_type(question)
+
+        # ── Threshold check ──
+        threshold_check = generation.get("threshold_check", {})
+        judge_flags = threshold_check.get("failures", [])
+
         # ── LLM Judge (optional) ──
         judge_scores = None
         if use_llm_judge:
@@ -115,6 +122,9 @@ def evaluate_single(
                 expected_answer=expected,
                 expected_lang=test_lang,
             )
+            # Override judge_flags with LLM judge flags if available
+            if judge_scores and judge_scores.get("judge_flags"):
+                judge_flags = judge_scores["judge_flags"]
 
         # ── Structured log ──
         log_block = generate_log_block(
@@ -123,6 +133,8 @@ def evaluate_single(
             chunks=sources if isinstance(sources, list) else [],
             confidence=confidence,
             agent_route=route,
+            query_type=query_type,
+            judge_flags=judge_flags if judge_flags else None,
         )
 
         entry = {
@@ -132,23 +144,28 @@ def evaluate_single(
             "domain":           domain,
             "language":         test_lang,
             "agent_route":      route,
+            "query_type":       query_type,
             "is_grounded":      verif.get("is_grounded", False),
             "response_time_s":  round(elapsed, 2),
             "retrieval":        retrieval,
             "generation":       generation,
             "confidence":       confidence,
             "query_theme":      detect_query_theme(question),
+            "threshold_passed": threshold_check.get("passed", False),
+            "judge_flags":      judge_flags if judge_flags else ["none"],
             "log_block":        log_block,
         }
 
         if judge_scores:
             entry["llm_judge"] = judge_scores
 
-        # Status indicator
-        rel = generation["correctness"]
-        faith = generation["faithfulness"]
-        status = "✅" if rel > 0.3 else "⚠️"
-        print(f"    {status} route={route} faith={faith:.2f} correct={rel:.2f} ({elapsed:.1f}s)")
+        # Status indicator — use threshold pass/fail
+        t_pass = threshold_check.get("passed", False)
+        faith = generation.get("faithfulness", 0)
+        correct = generation.get("correctness", 0)
+        flags_str = ", ".join(judge_flags) if judge_flags else "none"
+        status = "✅" if t_pass else "⚠️"
+        print(f"    {status} route={route} faith={faith:.2f} correct={correct:.2f} flags=[{flags_str}] ({elapsed:.1f}s)")
 
     except Exception as e:
         elapsed = time.time() - start
@@ -211,23 +228,44 @@ def aggregate_results(results: list[dict]) -> dict:
         c = r.get("confidence", "Low")
         conf_dist[c] = conf_dist.get(c, 0) + 1
 
+    # Threshold pass rate
+    threshold_pass_count = sum(1 for r in results if r.get("threshold_passed", False))
+    threshold_pass_rate = round(threshold_pass_count / n * 100, 1)
+
+    # Most common judge flags (failure patterns)
+    flag_counts: dict[str, int] = {}
+    for r in results:
+        for flag in r.get("judge_flags", []):
+            if flag != "none":
+                flag_counts[flag] = flag_counts.get(flag, 0) + 1
+    top_flags = sorted(flag_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # Query type distribution
+    type_dist: dict[str, int] = {}
+    for r in results:
+        qt = r.get("query_type", "factual")
+        type_dist[qt] = type_dist.get(qt, 0) + 1
+
     # LLM judge aggregates (if present)
     judge_agg = {}
     judge_results = [r.get("llm_judge") for r in results if r.get("llm_judge")]
     if judge_results:
-        for key in ["faithfulness", "relevancy", "language_match", "completeness", "conciseness", "overall_score"]:
+        for key in ["faithfulness", "relevancy", "correctness", "language_match", "completeness", "conciseness", "overall_score"]:
             vals = [j.get(key, 0) for j in judge_results]
             judge_agg[f"avg_{key}"] = _safe_avg(vals)
 
     return {
-        "total_questions":     n,
-        "retrieval":           retrieval_agg,
-        "generation":          generation_agg,
-        "grounded_pct":        grounded_pct,
-        "avg_response_time_s": avg_time,
-        "total_time_s":        total_time,
-        "confidence_dist":     conf_dist,
-        "llm_judge":           judge_agg if judge_agg else None,
+        "total_questions":      n,
+        "retrieval":            retrieval_agg,
+        "generation":           generation_agg,
+        "grounded_pct":         grounded_pct,
+        "threshold_pass_rate":  threshold_pass_rate,
+        "top_failure_flags":    top_flags,
+        "query_type_dist":      type_dist,
+        "avg_response_time_s":  avg_time,
+        "total_time_s":         total_time,
+        "confidence_dist":      conf_dist,
+        "llm_judge":            judge_agg if judge_agg else None,
     }
 
 
@@ -270,6 +308,16 @@ def generate_report(summary: dict, by_domain: dict, by_lang: dict, results: list
         lines.append(f"| {key.replace('avg_', '').replace('_', ' ').title()} | {val:.4f} |")
 
     lines.append(f"\n**Grounded:** {summary['grounded_pct']}%")
+    lines.append(f"**Threshold Pass Rate:** {summary.get('threshold_pass_rate', 0)}%")
+
+    # Top failure flags
+    top_flags = summary.get("top_failure_flags", [])
+    if top_flags:
+        lines.append("\n### Top Failure Patterns\n")
+        lines.append("| Criterion | Failures |")
+        lines.append("|-----------|----------|")
+        for flag, count in top_flags:
+            lines.append(f"| {flag.replace('_', ' ').title()} | {count} |")
 
     # Confidence distribution
     conf = summary.get("confidence_dist", {})
@@ -279,9 +327,18 @@ def generate_report(summary: dict, by_domain: dict, by_lang: dict, results: list
     for level in ["High", "Medium", "Low"]:
         lines.append(f"| {level} | {conf.get(level, 0)} |")
 
+    # Query type distribution
+    type_dist = summary.get("query_type_dist", {})
+    if type_dist:
+        lines.append("\n### Query Type Distribution\n")
+        lines.append("| Type | Count |")
+        lines.append("|------|-------|")
+        for qt, count in sorted(type_dist.items()):
+            lines.append(f"| {qt} | {count} |")
+
     # LLM Judge (if present)
     if summary.get("llm_judge"):
-        lines.append("\n### LLM Judge Scores (1-5 scale)\n")
+        lines.append("\n### LLM Judge Scores (0.0-1.0 scale)\n")
         lines.append("| Criterion | Avg Score |")
         lines.append("|-----------|-----------|")
         for key, val in summary["llm_judge"].items():
@@ -400,14 +457,23 @@ def run_evaluation(use_llm_judge: bool = False, quick: bool = False):
     print(f"  Conciseness:     {gen.get('avg_conciseness', 0):.4f}")
     print(f"  Grounded:        {summary['grounded_pct']:.1f}%")
     print(f"")
+    print(f"  ── Thresholds ──")
+    print(f"  Pass Rate:    {summary.get('threshold_pass_rate', 0):.1f}%")
+    top_flags = summary.get("top_failure_flags", [])
+    if top_flags:
+        flags_str = ", ".join(f"{f}({c})" for f, c in top_flags[:3])
+        print(f"  Top Failures: {flags_str}")
+    print(f"")
     print(f"  ── Confidence ──")
     print(f"  High: {conf.get('High', 0)}  Medium: {conf.get('Medium', 0)}  Low: {conf.get('Low', 0)}")
 
     if summary.get("llm_judge"):
         judge = summary["llm_judge"]
         print(f"")
-        print(f"  ── LLM Judge (1-5) ──")
-        print(f"  Overall:  {judge.get('avg_overall_score', 0):.1f}")
+        print(f"  ── LLM Judge (0.0-1.0) ──")
+        print(f"  Overall:  {judge.get('avg_overall_score', 0):.2f}")
+        print(f"  Faith:    {judge.get('avg_faithfulness', 0):.2f}")
+        print(f"  Correct:  {judge.get('avg_correctness', 0):.2f}")
 
     print(f"")
     print(f"  Results:  {RESULTS_PATH}")

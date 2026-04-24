@@ -1,33 +1,56 @@
 {
   "metadata": {
-    "timestamp": "2026-04-24T12:30:06.325975",
+    "timestamp": "2026-04-24T12:45:32.072198",
     "total_questions": 10,
     "llm_judge": false
   },
   "summary": {
     "total_questions": 10,
     "retrieval": {
-      "avg_precision_at_k": 0.46,
-      "avg_recall_at_k": 0.7,
-      "avg_hit_rate": 0.7,
-      "avg_mrr": 0.525,
-      "avg_ndcg_at_k": 0.5693
+      "avg_precision_at_k": 0.08,
+      "avg_recall_at_k": 0.1,
+      "avg_hit_rate": 0.1,
+      "avg_mrr": 0.05,
+      "avg_ndcg_at_k": 0.0761
     },
     "generation": {
-      "avg_faithfulness": 0.1214,
-      "avg_relevancy": 0.1538,
-      "avg_correctness": 0.2195,
+      "avg_faithfulness": 0.0865,
+      "avg_relevancy": 0.8422,
+      "avg_correctness": 0.6103,
       "avg_language_match": 1.0,
-      "avg_completeness": 0.3695,
-      "avg_conciseness": 0.7162
+      "avg_completeness": 0.9935,
+      "avg_conciseness": 0.7182
     },
-    "grounded_pct": 70.0,
-    "avg_response_time_s": 10.216,
-    "total_time_s": 102.2,
+    "grounded_pct": 10.0,
+    "threshold_pass_rate": 0.0,
+    "top_failure_flags": [
+      [
+        "faithfulness",
+        9
+      ],
+      [
+        "correctness",
+        8
+      ],
+      [
+        "conciseness",
+        5
+      ],
+      [
+        "relevancy",
+        1
+      ]
+    ],
+    "query_type_dist": {
+      "factual": 8,
+      "procedural": 2
+    },
+    "avg_response_time_s": 3.839,
+    "total_time_s": 38.4,
     "confidence_dist": {
-      "High": 0,
-      "Medium": 2,
-      "Low": 8
+      "High": 1,
+      "Medium": 6,
+      "Low": 3
     },
     "llm_judge": null
   },
@@ -35,54 +58,95 @@
     "about_tirumala": {
       "total_questions": 5,
       "retrieval": {
-        "avg_precision_at_k": 0.52,
-        "avg_recall_at_k": 0.8,
-        "avg_hit_rate": 0.8,
-        "avg_mrr": 0.65,
-        "avg_ndcg_at_k": 0.6597
+        "avg_precision_at_k": 0.0,
+        "avg_recall_at_k": 0.0,
+        "avg_hit_rate": 0.0,
+        "avg_mrr": 0.0,
+        "avg_ndcg_at_k": 0.0
       },
       "generation": {
-        "avg_faithfulness": 0.1371,
-        "avg_relevancy": 0.1473,
-        "avg_correctness": 0.3127,
+        "avg_faithfulness": 0.0,
+        "avg_relevancy": 0.8522,
+        "avg_correctness": 0.6582,
         "avg_language_match": 1.0,
-        "avg_completeness": 0.5639,
+        "avg_completeness": 0.9903,
         "avg_conciseness": 0.5424
       },
-      "grounded_pct": 80.0,
-      "avg_response_time_s": 12.212,
-      "total_time_s": 61.1,
+      "grounded_pct": 0.0,
+      "threshold_pass_rate": 0.0,
+      "top_failure_flags": [
+        [
+          "faithfulness",
+          5
+        ],
+        [
+          "conciseness",
+          4
+        ],
+        [
+          "correctness",
+          3
+        ],
+        [
+          "relevancy",
+          1
+        ]
+      ],
+      "query_type_dist": {
+        "factual": 5
+      },
+      "avg_response_time_s": 2.45,
+      "total_time_s": 12.3,
       "confidence_dist": {
         "High": 0,
-        "Medium": 2,
-        "Low": 3
+        "Medium": 4,
+        "Low": 1
       },
       "llm_judge": null
     },
     "pilgrimage_seva": {
       "total_questions": 5,
       "retrieval": {
-        "avg_precision_at_k": 0.4,
-        "avg_recall_at_k": 0.6,
-        "avg_hit_rate": 0.6,
-        "avg_mrr": 0.4,
-        "avg_ndcg_at_k": 0.4789
+        "avg_precision_at_k": 0.16,
+        "avg_recall_at_k": 0.2,
+        "avg_hit_rate": 0.2,
+        "avg_mrr": 0.1,
+        "avg_ndcg_at_k": 0.1521
       },
       "generation": {
-        "avg_faithfulness": 0.1057,
-        "avg_relevancy": 0.1602,
-        "avg_correctness": 0.1263,
+        "avg_faithfulness": 0.1729,
+        "avg_relevancy": 0.8322,
+        "avg_correctness": 0.5624,
         "avg_language_match": 1.0,
-        "avg_completeness": 0.1751,
-        "avg_conciseness": 0.89
+        "avg_completeness": 0.9967,
+        "avg_conciseness": 0.894
       },
-      "grounded_pct": 60.0,
-      "avg_response_time_s": 8.22,
-      "total_time_s": 41.1,
+      "grounded_pct": 20.0,
+      "threshold_pass_rate": 0.0,
+      "top_failure_flags": [
+        [
+          "correctness",
+          5
+        ],
+        [
+          "faithfulness",
+          4
+        ],
+        [
+          "conciseness",
+          1
+        ]
+      ],
+      "query_type_dist": {
+        "procedural": 2,
+        "factual": 3
+      },
+      "avg_response_time_s": 5.228,
+      "total_time_s": 26.1,
       "confidence_dist": {
-        "High": 0,
-        "Medium": 0,
-        "Low": 5
+        "High": 1,
+        "Medium": 2,
+        "Low": 2
       },
       "llm_judge": null
     }
@@ -91,27 +155,50 @@
     "en": {
       "total_questions": 10,
       "retrieval": {
-        "avg_precision_at_k": 0.46,
-        "avg_recall_at_k": 0.7,
-        "avg_hit_rate": 0.7,
-        "avg_mrr": 0.525,
-        "avg_ndcg_at_k": 0.5693
+        "avg_precision_at_k": 0.08,
+        "avg_recall_at_k": 0.1,
+        "avg_hit_rate": 0.1,
+        "avg_mrr": 0.05,
+        "avg_ndcg_at_k": 0.0761
       },
       "generation": {
-        "avg_faithfulness": 0.1214,
-        "avg_relevancy": 0.1538,
-        "avg_correctness": 0.2195,
+        "avg_faithfulness": 0.0865,
+        "avg_relevancy": 0.8422,
+        "avg_correctness": 0.6103,
         "avg_language_match": 1.0,
-        "avg_completeness": 0.3695,
-        "avg_conciseness": 0.7162
+        "avg_completeness": 0.9935,
+        "avg_conciseness": 0.7182
       },
-      "grounded_pct": 70.0,
-      "avg_response_time_s": 10.216,
-      "total_time_s": 102.2,
+      "grounded_pct": 10.0,
+      "threshold_pass_rate": 0.0,
+      "top_failure_flags": [
+        [
+          "faithfulness",
+          9
+        ],
+        [
+          "correctness",
+          8
+        ],
+        [
+          "conciseness",
+          5
+        ],
+        [
+          "relevancy",
+          1
+        ]
+      ],
+      "query_type_dist": {
+        "factual": 8,
+        "procedural": 2
+      },
+      "avg_response_time_s": 3.839,
+      "total_time_s": 38.4,
       "confidence_dist": {
-        "High": 0,
-        "Medium": 2,
-        "Low": 8
+        "High": 1,
+        "Medium": 6,
+        "Low": 3
       },
       "llm_judge": null
     }
@@ -123,29 +210,74 @@
       "actual_answer": "\n\nJai Balaji 🙏 \nThe seven hills of Tirumala are Vrushabhadri, Anjanadri, Neeladri, Garudadri, Seshadri, Narayanadri, and Venkatachala, which represent the seven hoods of Adisesha. \nMay I help you with more information about the significance of these hills? Hari Om 🙏\n",
       "domain": "about_tirumala",
       "language": "en",
-      "agent_route": "rag",
-      "is_grounded": true,
-      "response_time_s": 25.2,
+      "agent_route": "faq_cache",
+      "query_type": "factual",
+      "is_grounded": false,
+      "response_time_s": 10.74,
       "retrieval": {
-        "precision_at_k": 0.8,
-        "recall_at_k": 1.0,
-        "hit_rate": 1.0,
-        "mrr": 1.0,
-        "ndcg_at_k": 0.9558,
-        "relevant_count": 4,
-        "retrieved_count": 5
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
       },
       "generation": {
-        "faithfulness": 0.1988,
-        "relevancy": 0.2143,
-        "correctness": 0.4242,
+        "faithfulness": 0.0,
+        "relevancy": 0.8986,
+        "correctness": 0.7169,
         "language_match": 1.0,
-        "completeness": 0.7778,
-        "conciseness": 0.4333
+        "completeness": 1.0,
+        "conciseness": 0.4333,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "conciseness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.8986,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.7169,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 0.4333,
+              "threshold": 0.7,
+              "passed": false
+            }
+          }
+        }
       },
       "confidence": "Medium",
       "query_theme": "temple info",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Medium\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "conciseness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nquery_type: factual\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Medium\nfallback_triggered: false\njudge_flags: faithfulness, conciseness\n[/LOG]"
     },
     {
       "question": "What is the altitude of Tirumala?",
@@ -153,29 +285,72 @@
       "actual_answer": "\n\nJai Balaji 🙏 The altitude of Tirumala is approximately 853 metres (2,799 ft) above sea level. What would you like to know about the geography or climate of Tirumala? Hari Om 🙏\n",
       "domain": "about_tirumala",
       "language": "en",
-      "agent_route": "rag",
-      "is_grounded": true,
-      "response_time_s": 3.44,
+      "agent_route": "faq_cache",
+      "query_type": "factual",
+      "is_grounded": false,
+      "response_time_s": 0.06,
       "retrieval": {
-        "precision_at_k": 0.8,
-        "recall_at_k": 1.0,
-        "hit_rate": 1.0,
-        "mrr": 1.0,
-        "ndcg_at_k": 0.9558,
-        "relevant_count": 4,
-        "retrieved_count": 5
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
       },
       "generation": {
-        "faithfulness": 0.0879,
-        "relevancy": 0.3,
-        "correctness": 0.4615,
+        "faithfulness": 0.0,
+        "relevancy": 0.9093,
+        "correctness": 0.7423,
         "language_match": 1.0,
-        "completeness": 0.625,
-        "conciseness": 0.9333
+        "completeness": 1.0,
+        "conciseness": 0.9333,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.9093,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.7423,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 0.9333,
+              "threshold": 0.7,
+              "passed": true
+            }
+          }
+        }
       },
       "confidence": "Medium",
       "query_theme": "temple info",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Medium\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nquery_type: factual\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Medium\nfallback_triggered: false\njudge_flags: faithfulness\n[/LOG]"
     },
     {
       "question": "What is Akasa Ganga?",
@@ -184,8 +359,9 @@
       "domain": "about_tirumala",
       "language": "en",
       "agent_route": "faq_cache",
+      "query_type": "factual",
       "is_grounded": false,
-      "response_time_s": 10.71,
+      "response_time_s": 1.16,
       "retrieval": {
         "precision_at_k": 0.0,
         "recall_at_k": 0.0,
@@ -197,15 +373,63 @@
       },
       "generation": {
         "faithfulness": 0.0,
-        "relevancy": 0.0,
-        "correctness": 0.1714,
+        "relevancy": 0.6978,
+        "correctness": 0.5443,
         "language_match": 1.0,
-        "completeness": 0.3333,
-        "conciseness": 0.6111
+        "completeness": 0.9514,
+        "conciseness": 0.6111,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "relevancy",
+            "correctness",
+            "conciseness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.6978,
+              "threshold": 0.75,
+              "passed": false
+            },
+            "correctness": {
+              "score": 0.5443,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 0.9514,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 0.6111,
+              "threshold": 0.7,
+              "passed": false
+            }
+          }
+        }
       },
       "confidence": "Low",
       "query_theme": "general",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: general\nretrieval_hit: false\nsources_used: none\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "relevancy",
+        "correctness",
+        "conciseness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: general\nquery_type: factual\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Low\nfallback_triggered: false\njudge_flags: faithfulness, relevancy, correctness, conciseness\n[/LOG]"
     },
     {
       "question": "Where is Tirumala located?",
@@ -213,29 +437,76 @@
       "actual_answer": "\n\nJai Balaji 🙏, Tirumala is located in the state of Andhra Pradesh, on a range of Eastern ghats called the Seven Hills, with its town situated at a height of 2880 feet above sea level. It lies between the North latitude 13°-41\" and East longitude 79°-21\". What would you like to know about the temple or its surroundings? Hari Om 🙏\n",
       "domain": "about_tirumala",
       "language": "en",
-      "agent_route": "rag",
-      "is_grounded": true,
-      "response_time_s": 2.55,
+      "agent_route": "faq_cache",
+      "query_type": "factual",
+      "is_grounded": false,
+      "response_time_s": 0.06,
       "retrieval": {
-        "precision_at_k": 0.6,
-        "recall_at_k": 1.0,
-        "hit_rate": 1.0,
-        "mrr": 1.0,
-        "ndcg_at_k": 0.8855,
-        "relevant_count": 3,
-        "retrieved_count": 5
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
       },
       "generation": {
-        "faithfulness": 0.2842,
-        "relevancy": 0.1081,
-        "correctness": 0.2791,
+        "faithfulness": 0.0,
+        "relevancy": 0.8747,
+        "correctness": 0.6388,
         "language_match": 1.0,
-        "completeness": 0.6667,
-        "conciseness": 0.2867
+        "completeness": 1.0,
+        "conciseness": 0.2867,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "correctness",
+            "conciseness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.8747,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.6388,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 0.2867,
+              "threshold": 0.7,
+              "passed": false
+            }
+          }
+        }
       },
-      "confidence": "Low",
+      "confidence": "Medium",
       "query_theme": "temple info",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "correctness",
+        "conciseness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nquery_type: factual\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Medium\nfallback_triggered: false\njudge_flags: faithfulness, correctness, conciseness\n[/LOG]"
     },
     {
       "question": "What is the significance of Saptagiri?",
@@ -243,29 +514,76 @@
       "actual_answer": "\n\nJai Balaji 🙏 The Saptagiri, or the seven hills of Tirumala, are considered significant as they are believed to represent the seven Chakras, with the seventh being the Sahasrara, symbolizing the supreme Chakra. This analogy is deeply rooted in the spiritual and philosophical context of Tirumala. What would you like to know about the spiritual importance of each hill? Hari Om 🙏\n",
       "domain": "about_tirumala",
       "language": "en",
-      "agent_route": "rag",
-      "is_grounded": true,
-      "response_time_s": 19.16,
+      "agent_route": "faq_cache",
+      "query_type": "factual",
+      "is_grounded": false,
+      "response_time_s": 0.23,
       "retrieval": {
-        "precision_at_k": 0.4,
-        "recall_at_k": 1.0,
-        "hit_rate": 1.0,
-        "mrr": 0.25,
-        "ndcg_at_k": 0.5013,
-        "relevant_count": 2,
-        "retrieved_count": 5
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
       },
       "generation": {
-        "faithfulness": 0.1146,
-        "relevancy": 0.1143,
-        "correctness": 0.2273,
+        "faithfulness": 0.0,
+        "relevancy": 0.8805,
+        "correctness": 0.6487,
         "language_match": 1.0,
-        "completeness": 0.4167,
-        "conciseness": 0.4474
+        "completeness": 1.0,
+        "conciseness": 0.4474,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "correctness",
+            "conciseness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.8805,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.6487,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 0.4474,
+              "threshold": 0.7,
+              "passed": false
+            }
+          }
+        }
       },
-      "confidence": "Low",
+      "confidence": "Medium",
       "query_theme": "general",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: general\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "correctness",
+        "conciseness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: general\nquery_type: factual\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Medium\nfallback_triggered: false\njudge_flags: faithfulness, correctness, conciseness\n[/LOG]"
     },
     {
       "question": "How to book darshan tickets at Tirumala?",
@@ -274,8 +592,9 @@
       "domain": "pilgrimage_seva",
       "language": "en",
       "agent_route": "faq_cache",
+      "query_type": "procedural",
       "is_grounded": false,
-      "response_time_s": 4.66,
+      "response_time_s": 0.63,
       "retrieval": {
         "precision_at_k": 0.0,
         "recall_at_k": 0.0,
@@ -287,15 +606,59 @@
       },
       "generation": {
         "faithfulness": 0.0,
-        "relevancy": 0.0833,
-        "correctness": 0.0606,
+        "relevancy": 0.8156,
+        "correctness": 0.516,
         "language_match": 1.0,
-        "completeness": 0.0769,
-        "conciseness": 1.0
+        "completeness": 0.9836,
+        "conciseness": 1.0,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "correctness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.8156,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.516,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 0.9836,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            }
+          }
+        }
       },
       "confidence": "Low",
       "query_theme": "darshan booking",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nretrieval_hit: false\nsources_used: none\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "correctness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nquery_type: procedural\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Low\nfallback_triggered: false\njudge_flags: faithfulness, correctness\n[/LOG]"
     },
     {
       "question": "What is the dress code for Tirumala temple?",
@@ -303,29 +666,74 @@
       "actual_answer": "\n\nJai Balaji 🙏. The dress code for men is dhoti or pyjamas with upper cloth, and for women, it's saree or half-saree with blouse or churidar with pyjama and upper cloth. What type of darshan are you planning to attend? Hari Om 🙏\n",
       "domain": "pilgrimage_seva",
       "language": "en",
-      "agent_route": "rag",
-      "is_grounded": true,
-      "response_time_s": 8.53,
+      "agent_route": "faq_cache",
+      "query_type": "factual",
+      "is_grounded": false,
+      "response_time_s": 0.05,
       "retrieval": {
-        "precision_at_k": 0.8,
-        "recall_at_k": 1.0,
-        "hit_rate": 1.0,
-        "mrr": 1.0,
-        "ndcg_at_k": 0.9829,
-        "relevant_count": 4,
-        "retrieved_count": 5
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
       },
       "generation": {
-        "faithfulness": 0.1728,
-        "relevancy": 0.2308,
-        "correctness": 0.2105,
+        "faithfulness": 0.0,
+        "relevancy": 0.8215,
+        "correctness": 0.6095,
         "language_match": 1.0,
-        "completeness": 0.1875,
-        "conciseness": 1.0
+        "completeness": 1.0,
+        "conciseness": 1.0,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "correctness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.8215,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.6095,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            }
+          }
+        }
       },
-      "confidence": "Low",
+      "confidence": "Medium",
       "query_theme": "dress code",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: dress code\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "correctness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: dress code\nquery_type: factual\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Medium\nfallback_triggered: false\njudge_flags: faithfulness, correctness\n[/LOG]"
     },
     {
       "question": "How to get the famous Tirupati Laddu?",
@@ -333,29 +741,74 @@
       "actual_answer": "\n\nJai Balaji 🙏 To get the famous Tirupati Laddu, pilgrims can collect it as Prasadam within 24 hours from the reporting time for Angapradakshinam, by producing their original photo ID used during booking. Would you like to know more about the booking process or Angapradakshinam? Jai Balaji 🙏\n",
       "domain": "pilgrimage_seva",
       "language": "en",
-      "agent_route": "rag",
-      "is_grounded": true,
-      "response_time_s": 9.64,
+      "agent_route": "faq_cache",
+      "query_type": "procedural",
+      "is_grounded": false,
+      "response_time_s": 0.05,
       "retrieval": {
-        "precision_at_k": 0.4,
-        "recall_at_k": 1.0,
-        "hit_rate": 1.0,
-        "mrr": 0.5,
-        "ndcg_at_k": 0.6509,
-        "relevant_count": 2,
-        "retrieved_count": 5
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
       },
       "generation": {
-        "faithfulness": 0.181,
-        "relevancy": 0.25,
-        "correctness": 0.0976,
+        "faithfulness": 0.0,
+        "relevancy": 0.8762,
+        "correctness": 0.562,
         "language_match": 1.0,
-        "completeness": 0.1538,
-        "conciseness": 1.0
+        "completeness": 1.0,
+        "conciseness": 1.0,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "correctness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.8762,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.562,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            }
+          }
+        }
       },
-      "confidence": "Low",
+      "confidence": "Medium",
       "query_theme": "laddu prasadam",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: laddu prasadam\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "correctness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: laddu prasadam\nquery_type: procedural\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Medium\nfallback_triggered: false\njudge_flags: faithfulness, correctness\n[/LOG]"
     },
     {
       "question": "What types of darshan are available?",
@@ -364,8 +817,9 @@
       "domain": "pilgrimage_seva",
       "language": "en",
       "agent_route": "faq_cache",
+      "query_type": "factual",
       "is_grounded": false,
-      "response_time_s": 4.62,
+      "response_time_s": 0.33,
       "retrieval": {
         "precision_at_k": 0.0,
         "recall_at_k": 0.0,
@@ -377,25 +831,70 @@
       },
       "generation": {
         "faithfulness": 0.0,
-        "relevancy": 0.087,
-        "correctness": 0.0667,
+        "relevancy": 0.8179,
+        "correctness": 0.5296,
         "language_match": 1.0,
-        "completeness": 0.1,
-        "conciseness": 1.0
+        "completeness": 1.0,
+        "conciseness": 1.0,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "faithfulness",
+            "correctness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.0,
+              "threshold": 0.8,
+              "passed": false
+            },
+            "relevancy": {
+              "score": 0.8179,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.5296,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            }
+          }
+        }
       },
       "confidence": "Low",
       "query_theme": "darshan booking",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nretrieval_hit: false\nsources_used: none\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "faithfulness",
+        "correctness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nquery_type: factual\nretrieval_hit: false\nsources_used: none\ntop_score: 0.0\nconfidence: Low\nfallback_triggered: false\njudge_flags: faithfulness, correctness\n[/LOG]"
     },
     {
       "question": "What is the virtual queue system?",
       "expected_answer": "The virtual queue system allows devotees to get a time slot for darshan through online booking, reducing physical waiting time.",
-      "actual_answer": "\n\nJai Balaji 🙏 The virtual queue system is not explicitly mentioned in the provided context, but Tirumala Tirupati Devasthanams has Vaikuntam Queue Complexes where devotees can wait for their turn for darshan. For more information on the virtual queue system, please contact TTD directly at 1800-425-4141 or visit https://tirupatibalaji.ap.gov.in for the latest details. Are you planning to book a darshan ticket soon? Jai Balaji 🙏\n",
+      "actual_answer": "\n\nJai Balaji 🙏. The virtual queue system is not explicitly mentioned in the provided context, but Tirumala Tirupati Devasthanams has Vaikuntam Queue Complexes for managing the large number of devotees. For more information on the virtual queue system, please contact TTD directly at 1800-425-4141 or visit https://tirupatibalaji.ap.gov.in for the latest details. Are you planning to book a darshan ticket soon? Jai Balaji 🙏\n",
       "domain": "pilgrimage_seva",
       "language": "en",
       "agent_route": "rag",
+      "query_type": "factual",
       "is_grounded": true,
-      "response_time_s": 13.65,
+      "response_time_s": 25.08,
       "retrieval": {
         "precision_at_k": 0.8,
         "recall_at_k": 1.0,
@@ -406,16 +905,60 @@
         "retrieved_count": 5
       },
       "generation": {
-        "faithfulness": 0.1745,
-        "relevancy": 0.15,
-        "correctness": 0.1961,
+        "faithfulness": 0.8646,
+        "relevancy": 0.83,
+        "correctness": 0.5947,
         "language_match": 1.0,
-        "completeness": 0.3571,
-        "conciseness": 0.45
+        "completeness": 1.0,
+        "conciseness": 0.47,
+        "threshold_check": {
+          "passed": false,
+          "failures": [
+            "correctness",
+            "conciseness"
+          ],
+          "details": {
+            "faithfulness": {
+              "score": 0.8646,
+              "threshold": 0.8,
+              "passed": true
+            },
+            "relevancy": {
+              "score": 0.83,
+              "threshold": 0.75,
+              "passed": true
+            },
+            "correctness": {
+              "score": 0.5947,
+              "threshold": 0.7,
+              "passed": false
+            },
+            "language_match": {
+              "score": 1.0,
+              "threshold": 1.0,
+              "passed": true
+            },
+            "completeness": {
+              "score": 1.0,
+              "threshold": 0.7,
+              "passed": true
+            },
+            "conciseness": {
+              "score": 0.47,
+              "threshold": 0.7,
+              "passed": false
+            }
+          }
+        }
       },
-      "confidence": "Low",
+      "confidence": "High",
       "query_theme": "darshan booking",
-      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+      "threshold_passed": false,
+      "judge_flags": [
+        "correctness",
+        "conciseness"
+      ],
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nquery_type: factual\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\ntop_score: 0.0323\nconfidence: High\nfallback_triggered: false\njudge_flags: correctness, conciseness\n[/LOG]"
     }
   ]
 }
