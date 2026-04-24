@@ -1,0 +1,421 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-24T12:30:06.325975",
+    "total_questions": 10,
+    "llm_judge": false
+  },
+  "summary": {
+    "total_questions": 10,
+    "retrieval": {
+      "avg_precision_at_k": 0.46,
+      "avg_recall_at_k": 0.7,
+      "avg_hit_rate": 0.7,
+      "avg_mrr": 0.525,
+      "avg_ndcg_at_k": 0.5693
+    },
+    "generation": {
+      "avg_faithfulness": 0.1214,
+      "avg_relevancy": 0.1538,
+      "avg_correctness": 0.2195,
+      "avg_language_match": 1.0,
+      "avg_completeness": 0.3695,
+      "avg_conciseness": 0.7162
+    },
+    "grounded_pct": 70.0,
+    "avg_response_time_s": 10.216,
+    "total_time_s": 102.2,
+    "confidence_dist": {
+      "High": 0,
+      "Medium": 2,
+      "Low": 8
+    },
+    "llm_judge": null
+  },
+  "by_domain": {
+    "about_tirumala": {
+      "total_questions": 5,
+      "retrieval": {
+        "avg_precision_at_k": 0.52,
+        "avg_recall_at_k": 0.8,
+        "avg_hit_rate": 0.8,
+        "avg_mrr": 0.65,
+        "avg_ndcg_at_k": 0.6597
+      },
+      "generation": {
+        "avg_faithfulness": 0.1371,
+        "avg_relevancy": 0.1473,
+        "avg_correctness": 0.3127,
+        "avg_language_match": 1.0,
+        "avg_completeness": 0.5639,
+        "avg_conciseness": 0.5424
+      },
+      "grounded_pct": 80.0,
+      "avg_response_time_s": 12.212,
+      "total_time_s": 61.1,
+      "confidence_dist": {
+        "High": 0,
+        "Medium": 2,
+        "Low": 3
+      },
+      "llm_judge": null
+    },
+    "pilgrimage_seva": {
+      "total_questions": 5,
+      "retrieval": {
+        "avg_precision_at_k": 0.4,
+        "avg_recall_at_k": 0.6,
+        "avg_hit_rate": 0.6,
+        "avg_mrr": 0.4,
+        "avg_ndcg_at_k": 0.4789
+      },
+      "generation": {
+        "avg_faithfulness": 0.1057,
+        "avg_relevancy": 0.1602,
+        "avg_correctness": 0.1263,
+        "avg_language_match": 1.0,
+        "avg_completeness": 0.1751,
+        "avg_conciseness": 0.89
+      },
+      "grounded_pct": 60.0,
+      "avg_response_time_s": 8.22,
+      "total_time_s": 41.1,
+      "confidence_dist": {
+        "High": 0,
+        "Medium": 0,
+        "Low": 5
+      },
+      "llm_judge": null
+    }
+  },
+  "by_language": {
+    "en": {
+      "total_questions": 10,
+      "retrieval": {
+        "avg_precision_at_k": 0.46,
+        "avg_recall_at_k": 0.7,
+        "avg_hit_rate": 0.7,
+        "avg_mrr": 0.525,
+        "avg_ndcg_at_k": 0.5693
+      },
+      "generation": {
+        "avg_faithfulness": 0.1214,
+        "avg_relevancy": 0.1538,
+        "avg_correctness": 0.2195,
+        "avg_language_match": 1.0,
+        "avg_completeness": 0.3695,
+        "avg_conciseness": 0.7162
+      },
+      "grounded_pct": 70.0,
+      "avg_response_time_s": 10.216,
+      "total_time_s": 102.2,
+      "confidence_dist": {
+        "High": 0,
+        "Medium": 2,
+        "Low": 8
+      },
+      "llm_judge": null
+    }
+  },
+  "results": [
+    {
+      "question": "What are the seven hills of Tirumala?",
+      "expected_answer": "The seven hills are Seshadri, Neeladri, Garudadri, Anjanadri, Vrishabhadri, Narayanadri, and Venkatadri.",
+      "actual_answer": "\n\nJai Balaji 🙏 \nThe seven hills of Tirumala are Vrushabhadri, Anjanadri, Neeladri, Garudadri, Seshadri, Narayanadri, and Venkatachala, which represent the seven hoods of Adisesha. \nMay I help you with more information about the significance of these hills? Hari Om 🙏\n",
+      "domain": "about_tirumala",
+      "language": "en",
+      "agent_route": "rag",
+      "is_grounded": true,
+      "response_time_s": 25.2,
+      "retrieval": {
+        "precision_at_k": 0.8,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9558,
+        "relevant_count": 4,
+        "retrieved_count": 5
+      },
+      "generation": {
+        "faithfulness": 0.1988,
+        "relevancy": 0.2143,
+        "correctness": 0.4242,
+        "language_match": 1.0,
+        "completeness": 0.7778,
+        "conciseness": 0.4333
+      },
+      "confidence": "Medium",
+      "query_theme": "temple info",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Medium\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "What is the altitude of Tirumala?",
+      "expected_answer": "Tirumala is situated at an altitude of about 853 meters (2,799 feet) above sea level.",
+      "actual_answer": "\n\nJai Balaji 🙏 The altitude of Tirumala is approximately 853 metres (2,799 ft) above sea level. What would you like to know about the geography or climate of Tirumala? Hari Om 🙏\n",
+      "domain": "about_tirumala",
+      "language": "en",
+      "agent_route": "rag",
+      "is_grounded": true,
+      "response_time_s": 3.44,
+      "retrieval": {
+        "precision_at_k": 0.8,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9558,
+        "relevant_count": 4,
+        "retrieved_count": 5
+      },
+      "generation": {
+        "faithfulness": 0.0879,
+        "relevancy": 0.3,
+        "correctness": 0.4615,
+        "language_match": 1.0,
+        "completeness": 0.625,
+        "conciseness": 0.9333
+      },
+      "confidence": "Medium",
+      "query_theme": "temple info",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Medium\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "What is Akasa Ganga?",
+      "expected_answer": "Akasa Ganga is a sacred waterfall located on the hills of Tirumala, believed to be a divine waterfall.",
+      "actual_answer": "\n\nJai Balaji 🙏. Tirumala is located in the Chittoor district of Andhra Pradesh, India, in the Tirupati Urban Mandal. It is situated in the hills of Tirumala, near the city of Tirupati. Would you like to know more about how to reach Tirumala or its famous temples? Hari Om 🙏\n",
+      "domain": "about_tirumala",
+      "language": "en",
+      "agent_route": "faq_cache",
+      "is_grounded": false,
+      "response_time_s": 10.71,
+      "retrieval": {
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
+      },
+      "generation": {
+        "faithfulness": 0.0,
+        "relevancy": 0.0,
+        "correctness": 0.1714,
+        "language_match": 1.0,
+        "completeness": 0.3333,
+        "conciseness": 0.6111
+      },
+      "confidence": "Low",
+      "query_theme": "general",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: general\nretrieval_hit: false\nsources_used: none\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "Where is Tirumala located?",
+      "expected_answer": "Tirumala is located in the Chittoor district of Andhra Pradesh, India, in the Eastern Ghats.",
+      "actual_answer": "\n\nJai Balaji 🙏, Tirumala is located in the state of Andhra Pradesh, on a range of Eastern ghats called the Seven Hills, with its town situated at a height of 2880 feet above sea level. It lies between the North latitude 13°-41\" and East longitude 79°-21\". What would you like to know about the temple or its surroundings? Hari Om 🙏\n",
+      "domain": "about_tirumala",
+      "language": "en",
+      "agent_route": "rag",
+      "is_grounded": true,
+      "response_time_s": 2.55,
+      "retrieval": {
+        "precision_at_k": 0.6,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.8855,
+        "relevant_count": 3,
+        "retrieved_count": 5
+      },
+      "generation": {
+        "faithfulness": 0.2842,
+        "relevancy": 0.1081,
+        "correctness": 0.2791,
+        "language_match": 1.0,
+        "completeness": 0.6667,
+        "conciseness": 0.2867
+      },
+      "confidence": "Low",
+      "query_theme": "temple info",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: temple info\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "What is the significance of Saptagiri?",
+      "expected_answer": "Saptagiri refers to the seven hills of Tirumala, which are considered sacred and are associated with various mythological stories.",
+      "actual_answer": "\n\nJai Balaji 🙏 The Saptagiri, or the seven hills of Tirumala, are considered significant as they are believed to represent the seven Chakras, with the seventh being the Sahasrara, symbolizing the supreme Chakra. This analogy is deeply rooted in the spiritual and philosophical context of Tirumala. What would you like to know about the spiritual importance of each hill? Hari Om 🙏\n",
+      "domain": "about_tirumala",
+      "language": "en",
+      "agent_route": "rag",
+      "is_grounded": true,
+      "response_time_s": 19.16,
+      "retrieval": {
+        "precision_at_k": 0.4,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 0.25,
+        "ndcg_at_k": 0.5013,
+        "relevant_count": 2,
+        "retrieved_count": 5
+      },
+      "generation": {
+        "faithfulness": 0.1146,
+        "relevancy": 0.1143,
+        "correctness": 0.2273,
+        "language_match": 1.0,
+        "completeness": 0.4167,
+        "conciseness": 0.4474
+      },
+      "confidence": "Low",
+      "query_theme": "general",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: general\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "How to book darshan tickets at Tirumala?",
+      "expected_answer": "Darshan tickets can be booked online through the TTD website or at local TTD counters. Virtual queue tokens are also available.",
+      "actual_answer": "\n\nThe darshan waiting time is around 2 to 3 hours on normal days. Would you like to know more about the Sarvadarshanam timings or the weekly temple programme? Jai Balaji 🙏\n",
+      "domain": "pilgrimage_seva",
+      "language": "en",
+      "agent_route": "faq_cache",
+      "is_grounded": false,
+      "response_time_s": 4.66,
+      "retrieval": {
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
+      },
+      "generation": {
+        "faithfulness": 0.0,
+        "relevancy": 0.0833,
+        "correctness": 0.0606,
+        "language_match": 1.0,
+        "completeness": 0.0769,
+        "conciseness": 1.0
+      },
+      "confidence": "Low",
+      "query_theme": "darshan booking",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nretrieval_hit: false\nsources_used: none\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "What is the dress code for Tirumala temple?",
+      "expected_answer": "Traditional Indian attire is required. Men should wear dhoti/panche and women should wear saree or salwar kameez. Jeans, shorts, and western wear are not allowed.",
+      "actual_answer": "\n\nJai Balaji 🙏. The dress code for men is dhoti or pyjamas with upper cloth, and for women, it's saree or half-saree with blouse or churidar with pyjama and upper cloth. What type of darshan are you planning to attend? Hari Om 🙏\n",
+      "domain": "pilgrimage_seva",
+      "language": "en",
+      "agent_route": "rag",
+      "is_grounded": true,
+      "response_time_s": 8.53,
+      "retrieval": {
+        "precision_at_k": 0.8,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9829,
+        "relevant_count": 4,
+        "retrieved_count": 5
+      },
+      "generation": {
+        "faithfulness": 0.1728,
+        "relevancy": 0.2308,
+        "correctness": 0.2105,
+        "language_match": 1.0,
+        "completeness": 0.1875,
+        "conciseness": 1.0
+      },
+      "confidence": "Low",
+      "query_theme": "dress code",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: dress code\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "How to get the famous Tirupati Laddu?",
+      "expected_answer": "The Srivari Laddu can be obtained at the prasadam counters after darshan. It can also be booked in advance through the TTD online portal.",
+      "actual_answer": "\n\nJai Balaji 🙏 To get the famous Tirupati Laddu, pilgrims can collect it as Prasadam within 24 hours from the reporting time for Angapradakshinam, by producing their original photo ID used during booking. Would you like to know more about the booking process or Angapradakshinam? Jai Balaji 🙏\n",
+      "domain": "pilgrimage_seva",
+      "language": "en",
+      "agent_route": "rag",
+      "is_grounded": true,
+      "response_time_s": 9.64,
+      "retrieval": {
+        "precision_at_k": 0.4,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6509,
+        "relevant_count": 2,
+        "retrieved_count": 5
+      },
+      "generation": {
+        "faithfulness": 0.181,
+        "relevancy": 0.25,
+        "correctness": 0.0976,
+        "language_match": 1.0,
+        "completeness": 0.1538,
+        "conciseness": 1.0
+      },
+      "confidence": "Low",
+      "query_theme": "laddu prasadam",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: laddu prasadam\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "What types of darshan are available?",
+      "expected_answer": "Types include Sarva Darshan (free), Divya Darshan, Special Entry Darshan (₹300 ticket), and VIP Break Darshan.",
+      "actual_answer": "\n\nThe darshan waiting time is around 2 to 3 hours on normal days. Would you like to know more about the Sarvadarshanam timings or the weekly temple programme? Jai Balaji 🙏\n",
+      "domain": "pilgrimage_seva",
+      "language": "en",
+      "agent_route": "faq_cache",
+      "is_grounded": false,
+      "response_time_s": 4.62,
+      "retrieval": {
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "relevant_count": 0,
+        "retrieved_count": 0
+      },
+      "generation": {
+        "faithfulness": 0.0,
+        "relevancy": 0.087,
+        "correctness": 0.0667,
+        "language_match": 1.0,
+        "completeness": 0.1,
+        "conciseness": 1.0
+      },
+      "confidence": "Low",
+      "query_theme": "darshan booking",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nretrieval_hit: false\nsources_used: none\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    },
+    {
+      "question": "What is the virtual queue system?",
+      "expected_answer": "The virtual queue system allows devotees to get a time slot for darshan through online booking, reducing physical waiting time.",
+      "actual_answer": "\n\nJai Balaji 🙏 The virtual queue system is not explicitly mentioned in the provided context, but Tirumala Tirupati Devasthanams has Vaikuntam Queue Complexes where devotees can wait for their turn for darshan. For more information on the virtual queue system, please contact TTD directly at 1800-425-4141 or visit https://tirupatibalaji.ap.gov.in for the latest details. Are you planning to book a darshan ticket soon? Jai Balaji 🙏\n",
+      "domain": "pilgrimage_seva",
+      "language": "en",
+      "agent_route": "rag",
+      "is_grounded": true,
+      "response_time_s": 13.65,
+      "retrieval": {
+        "precision_at_k": 0.8,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.7606,
+        "relevant_count": 4,
+        "retrieved_count": 5
+      },
+      "generation": {
+        "faithfulness": 0.1745,
+        "relevancy": 0.15,
+        "correctness": 0.1961,
+        "language_match": 1.0,
+        "completeness": 0.3571,
+        "conciseness": 0.45
+      },
+      "confidence": "Low",
+      "query_theme": "darshan booking",
+      "log_block": "[LOG]\nquery_language: en\nquery_theme: darshan booking\nretrieval_hit: true\nsources_used: SRC-001, SRC-002, SRC-003, SRC-004, SRC-005\nconfidence: Low\nfallback_triggered: false\n[/LOG]"
+    }
+  ]
+}
