@@ -189,6 +189,10 @@ class VoicePipeline:
                 language_hint=self.language_hint
             )
             if not stt_result:
+                self.tts.speak(
+                    "I didn't hear anything. Could you please speak again?",
+                    lang="en",
+                )
                 print("No speech detected. Please try again.")
                 continue
 
@@ -211,6 +215,35 @@ class VoicePipeline:
             print(f"You said: {user_text}")
             logger.info("[USER %s] %s", detected_lang.upper(), user_text)
 
+            # ── Low confidence: proactively ask to repeat ──
+            # Track consecutive failures for escalating alternatives
+            if not hasattr(self, '_consecutive_failures'):
+                self._consecutive_failures = 0
+
+            if whisper_conf < 0.40:
+                self._consecutive_failures += 1
+                logger.warning(
+                    "Low STT confidence (%.0f%%) — asking user to repeat (failures=%d)",
+                    whisper_conf * 100, self._consecutive_failures,
+                )
+                if self._consecutive_failures >= 3:
+                    # After 3 failures, suggest typing instead
+                    self.tts.speak(
+                        "I'm having trouble hearing you clearly. "
+                        "You could try typing your question instead. "
+                        "Press Control C to switch to text mode.",
+                        lang="en",
+                    )
+                    print("\n💡 Tip: Press Ctrl+C to switch to text input mode.")
+                    self._consecutive_failures = 0
+                else:
+                    self.tts.speak(
+                        "I'm sorry, I couldn't hear you clearly. "
+                        "Could you please speak a little louder and closer to the microphone?",
+                        lang="en",
+                    )
+                    print("⚠ Low confidence. Please speak more clearly.")
+                continue
 
             # 2. Optional wake word filter
             if self.wake_word and self.wake_word not in user_text.lower():
@@ -252,8 +285,38 @@ class VoicePipeline:
                 english_answer = "I'm sorry, I could not process your request."
             logger.info("[ANSWER] %s  (%.2fs)", english_answer[:100], time.time() - t0)
 
-            # 5. Speak answer (caller handles UI display via their own callback)
-            self.tts.speak(english_answer, lang=detected_lang)
+            # 5. Check if the answer is a clarification request (validation_error)
+            #    Speak a short, friendly version via TTS (the full message is too long to speak)
+            _clarification_markers = [
+                "couldn't quite catch",
+                "couldn't understand",
+                "couldn't clearly understand",
+                "repeat your question",
+            ]
+            is_clarification = any(m in english_answer.lower() for m in _clarification_markers)
+
+            if is_clarification:
+                self._consecutive_failures += 1
+                # Speak short version, display full version
+                if self._consecutive_failures >= 2:
+                    self.tts.speak(
+                        "I'm still having trouble understanding. "
+                        "You can try typing your question by pressing Control C. "
+                        "I understand English, Telugu, Hindi, Tamil, and Kannada.",
+                        lang="en",
+                    )
+                    print("\n💡 Tip: Press Ctrl+C to switch to text input mode.")
+                    self._consecutive_failures = 0
+                else:
+                    self.tts.speak(
+                        "I'm sorry, I couldn't understand that clearly. "
+                        "Could you please repeat your question a little more slowly?",
+                        lang="en",
+                    )
+            else:
+                # Successful answer — reset failure counter
+                self._consecutive_failures = 0
+                self.tts.speak(english_answer, lang=detected_lang)
 
     def stop(self):
         self._running = False

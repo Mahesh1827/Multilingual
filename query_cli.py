@@ -147,19 +147,78 @@ def _detect_romanized_indic(text: str) -> str | None:
 
 
 # ── Explicit language override parsing ──
+# Supports override requests in all 5 languages:
+#   English:  "tell in English", "answer in Hindi"
+#   Telugu:   "English lo cheppandi", "ఇంగ్లీష్ లో చెప్పండి"
+#   Hindi:    "English mein batao", "अंग्रेजी में बताओ"
+#   Tamil:    "English la sollunga", "ஆங்கிலத்தில் சொல்லுங்க"
+#   Kannada:  "English alli heli", "ಇಂಗ್ಲಿಷ್ ನಲ್ಲಿ ಹೇಳಿ"
 
-_LANG_OVERRIDE_PATTERNS = {
-    "en": re.compile(r"\b(tell|answer|reply|respond|speak)\s+(me\s+)?(in\s+)?english\b", re.IGNORECASE),
-    "te": re.compile(r"\b(tell|answer|reply|respond|speak)\s+(me\s+)?(in\s+)?telugu\b", re.IGNORECASE),
-    "hi": re.compile(r"\b(tell|answer|reply|respond|speak)\s+(me\s+)?(in\s+)?hindi\b", re.IGNORECASE),
-    "ta": re.compile(r"\b(tell|answer|reply|respond|speak)\s+(me\s+)?(in\s+)?tamil\b", re.IGNORECASE),
-    "kn": re.compile(r"\b(tell|answer|reply|respond|speak)\s+(me\s+)?(in\s+)?kannada\b", re.IGNORECASE),
+# ── Language name mappings (all ways to say each language name) ──
+_LANG_NAMES: dict[str, list[str]] = {
+    "en": [
+        "english", "inglish", "aanglam", "angrezee", "angrezi",
+        "ఇంగ్లీష్", "ఆంగ్లం", "इंग्लिश", "अंग्रेजी", "ஆங்கிலம்", "ಇಂಗ್ಲಿಷ್",
+    ],
+    "te": [
+        "telugu", "telgu",
+        "తెలుగు", "तेलुगु", "தெலுங்கு", "ತೆಲುಗು",
+    ],
+    "hi": [
+        "hindi", "hindee",
+        "హిందీ", "हिंदी", "हिन्दी", "இந்தி", "ಹಿಂದಿ",
+    ],
+    "ta": [
+        "tamil", "tamizh",
+        "తమిళం", "तमिल", "தமிழ்", "ತಮಿಳು",
+    ],
+    "kn": [
+        "kannada", "kannad",
+        "కన్నడ", "कन्नड", "கன்னடம்", "ಕನ್ನಡ",
+    ],
 }
+
+# Build a single regex per target language that matches override phrases
+# in English + all 4 Indic languages (romanized & native script).
+def _build_override_patterns() -> dict[str, re.Pattern]:
+    patterns: dict[str, re.Pattern] = {}
+
+    for lang, names in _LANG_NAMES.items():
+        lang_alt = "|".join(re.escape(n) for n in names)
+
+        parts = [
+            # English: "tell/answer/reply in <lang>"
+            rf"\b(tell|answer|reply|respond|speak)\s+(me\s+)?(in\s+)?({lang_alt})\b",
+            # Telugu romanized: "<lang> lo cheppu/cheppandi"
+            rf"\b({lang_alt})\s+(lo|lō)\s+(cheppu|cheppandi|cheppu)\b",
+            # Hindi romanized: "<lang> mein/me batao/bataiye/bolo"
+            rf"\b({lang_alt})\s+(mein|me|mai)\s+(batao|bataiye|bataao|bolo|jawab\s+do)\b",
+            # Tamil romanized: "<lang> la/ula sollu/sollunga/solu"
+            rf"\b({lang_alt})\s+(la|ula|le|il)\s+(sollu|sollunga|sollungal|solu)\b",
+            # Kannada romanized: "<lang> alli/nalli helu/heli/helri"
+            rf"\b({lang_alt})\s+(alli|nalli|li)\s+(helu|heli|helri|heliri)\b",
+            # Native script — Telugu: "<lang> లో చెప్పండి"
+            rf"({lang_alt})\s*లో\s*(చెప్పు|చెప్పండి)",
+            # Native script — Hindi: "<lang> में बताओ"
+            rf"({lang_alt})\s*में\s*(बताओ|बताइए|बताइये|बोलो|जवाब\s*दो)",
+            # Native script — Tamil: "<lang> ல சொல்லுங்க"
+            rf"({lang_alt})\s*(ல|ில்|த்தில்)\s*(சொல்லு|சொல்லுங்க|சொல்லுங்கள்)",
+            # Native script — Kannada: "<lang> ಅಲ್ಲಿ ಹೇಳಿ"
+            rf"({lang_alt})\s*(ಅಲ್ಲಿ|ನಲ್ಲಿ)\s*(ಹೇಳಿ|ಹೇಳಿರಿ|ಹೇಳು)",
+        ]
+        combined = "|".join(f"(?:{p})" for p in parts)
+        patterns[lang] = re.compile(combined, re.IGNORECASE | re.UNICODE)
+
+    return patterns
+
+_LANG_OVERRIDE_PATTERNS = _build_override_patterns()
 
 
 def _detect_language_override(text: str) -> str | None:
     """
     Check if the user explicitly requested a response language.
+    Supports requests in English, Telugu, Hindi, Tamil, and Kannada
+    (both romanized and native script).
     Returns ISO code if found, else None.
     """
     for lang, pat in _LANG_OVERRIDE_PATTERNS.items():
@@ -169,7 +228,7 @@ def _detect_language_override(text: str) -> str | None:
 
 
 def _strip_language_override(text: str) -> str:
-    """Remove the 'tell in <language>' phrase from the query so it doesn't confuse the pipeline."""
+    """Remove the language override phrase from the query so it doesn't confuse the pipeline."""
     for pat in _LANG_OVERRIDE_PATTERNS.values():
         text = pat.sub("", text)
     return text.strip()
@@ -322,17 +381,6 @@ def _show_result(result: dict, response_lang: str = "en"):
         print("\n💡 Try asking:")
         for i, s in enumerate(suggestions, 1):
             print(f"   {i}. {s}")
-
-    # Display English translation at the absolute bottom if needed
-    if response_lang not in ("en", "unknown") and result.get("answer"):
-        try:
-            translator = _get_translator()
-            english_translation = translator.indic_to_english(result["answer"], response_lang)
-            if english_translation and english_translation.strip() != result["answer"].strip():
-                print("\n[English Translation]:")
-                print(english_translation)
-        except Exception:
-            pass
 
     print("=" * 70)
 

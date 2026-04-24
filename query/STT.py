@@ -277,10 +277,27 @@ class RealTimeSTT:
     def start_recording(self):
         """Start microphone capture into an internal buffer."""
         self._frames = []
+        
+        target_device = None
+        try:
+            devices = sd.query_devices()
+            for i, dev in enumerate(devices):
+                name = dev['name'].lower()
+                # Prioritize soundcore microphone, ignoring output-only devices
+                if dev['max_input_channels'] > 0 and 'soundcore' in name:
+                    target_device = i
+                    break
+        except Exception as e:
+            logger.warning("Failed to query devices: %s", e)
+            
+        if target_device is not None:
+            logger.info("Auto-selected microphone device %d: %s", target_device, devices[target_device]['name'])
+
         self._stream = sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
             dtype="int16",
+            device=target_device,
             callback=self._callback
         )
         self._stream.start()
@@ -420,6 +437,11 @@ class RealTimeSTT:
                     text = refined
             except Exception as e:
                 logger.warning("English refinement pass failed (%s)", e)
+
+        # ── Pass 2.3 (English): dictionary-based ASR correction ──
+        # Fixes words like "Kirmala" → "Tirumala" that Whisper consistently mishears
+        if lang == "en":
+            text = _apply_english_asr_corrections(text)
 
         # ── Pass 2.5 (non-English): Phonetic dictionary + LLM correction ──
         # Corrects known Whisper ASR substitutions token-by-token (e.g. "ఇర్వే"→"ఇరవై",

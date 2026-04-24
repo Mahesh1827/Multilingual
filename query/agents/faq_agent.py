@@ -61,7 +61,7 @@ except ImportError:
 # Similarity thresholds
 # ──────────────────────────────────────────────
 _SEMANTIC_HIGH   = 0.85   # Direct match — return immediately
-_SEMANTIC_MEDIUM = 0.70   # Likely match — return with soft clarification
+_SEMANTIC_MEDIUM = 0.78   # Likely match — return with soft clarification (raised from 0.70 to reduce false positives)
 _FUZZY_THRESHOLD = 0.80   # SequenceMatcher fallback threshold
 
 # ──────────────────────────────────────────────
@@ -69,6 +69,16 @@ _FUZZY_THRESHOLD = 0.80   # SequenceMatcher fallback threshold
 # ──────────────────────────────────────────────
 _GREETINGS = {"hi", "hello", "hey", "namaste"}
 _THANKS    = {"thank you", "thanks", "thank u", "dhanyavad"}
+
+# Social / small-talk phrases that must NEVER reach the semantic cache
+_SOCIAL_QUERIES = {
+    "how are you", "how r u", "how are u", "how r you",
+    "how do you do", "how's it going", "how is it going",
+    "what's up", "whats up", "wassup",
+    "good morning", "good afternoon", "good evening", "good night",
+    "are you there", "you there",
+}
+
 _META = {
     "who are you":     "I'm an AI assistant for Tirumala Tirupati Devasthanams (TTD), happy to help with all your Tirumala questions!",
     "what can you do": "I can help with darshan timings, sevas, festivals, temple history, pilgrimage guidance, and much more. What would you like to know?",
@@ -85,6 +95,9 @@ _SCOPE_KEYWORDS = {
     "travel", "reach", "weather", "timing", "open", "close", "cost",
     "price", "fee", "kiosk", "chandragiri", "alipiri", "triumala", "tirumla",
     "chairman", "naidu", "board", "eo", "officer", "trustee", "appointment",
+    "dress", "code", "rules", "guidelines", "phone", "mobile", "camera",
+    "luggage", "locker", "footwear", "shoes", "banned", "prohibited",
+    "allowed", "restricted", "queue", "waiting", "time",
 }
 
 _LOCATIONS = {
@@ -390,7 +403,26 @@ def lookup_cache(question: str, language: str = "en") -> tuple[str | None, float
             best_method = "fuzzy"
 
     # ── Confidence gating ──
+    # Before accepting, verify the INTENT of the query matches the cached question.
+    # This prevents "dress code to visit Tirumala" from matching "where is Tirumala"
+    # just because both mention "Tirumala".
     if best_score >= _SEMANTIC_MEDIUM and best_idx >= 0:
+        # Extract intent-carrying words (strip common noise + location names)
+        _intent_noise = _NOISE_WORDS | _LOCATIONS | {"how", "where", "when", "do", "does", "did", "are", "was", "were", "to", "for", "and", "or", "it", "its", "i", "my", "we", "our", "visit", "go", "know", "want", "need"}
+        q_intent_words = {w for w in normalized_q.split() if w not in _intent_noise and len(w) > 2}
+        cached_q_norm = _normalize_query(cache[best_idx].get("question", ""))
+        c_intent_words = {w for w in cached_q_norm.split() if w not in _intent_noise and len(w) > 2}
+
+        # If both queries have intent words but ZERO overlap, the match is a false positive
+        if q_intent_words and c_intent_words and not (q_intent_words & c_intent_words):
+            # Only reject if score is below HIGH threshold (very high scores are likely genuine)
+            if best_score < _SEMANTIC_HIGH:
+                logger.info(
+                    "📋 [FAQ Cache] REJECTED false-positive: score=%.3f but intent mismatch. "
+                    "query_intent=%s vs cached_intent=%s",
+                    best_score, q_intent_words, c_intent_words,
+                )
+                return None, best_score
         # Increment hit counter
         cache[best_idx]["hit_count"] = cache[best_idx].get("hit_count", 0) + 1
         cache[best_idx]["last_accessed"] = datetime.now().isoformat()
@@ -455,6 +487,22 @@ def save_to_cache(question: str, answer: str, language: str = "en") -> None:
     if any(phrase in ans_lower for phrase in _FAILURE_PHRASES):
         logger.info("📋 [FAQ Cache] BLOCKED: Refusing to cache a fallback/failure response.")
         return
+
+    # SAFEGUARD: Do not cache non-English text when language tag is "en".
+    # This prevents romanized Hindi/Telugu answers from polluting the cache
+    # and false-matching unrelated queries.
+    if language == "en":
+        non_ascii = sum(1 for c in answer if ord(c) > 127)
+        if len(answer) > 0 and non_ascii / len(answer) > 0.15:
+            logger.info("📋 [FAQ Cache] BLOCKED: Answer tagged 'en' but contains %.0f%% non-ASCII chars.", non_ascii / len(answer) * 100)
+            return
+        # Also block romanized Indic (Latin-script Hindi/Telugu) if question contains pipeline context hint
+        if "(in the context of tirumala)" in question.lower():
+            _romanized_markers = {"aapko", "kaise", "hoga", "chahiye", "karna", "bata", "wahan", "milengi", "uplabdh"}
+            answer_words = set(re.findall(r'\b[a-z]+\b', ans_lower))
+            if len(answer_words & _romanized_markers) >= 3:
+                logger.info("📋 [FAQ Cache] BLOCKED: Answer appears to be romanized Indic text.")
+                return
 
     cache = _load_cache()
     now_iso = datetime.now().isoformat()
@@ -647,6 +695,19 @@ def faq_agent(query: str, language: str = "en") -> str | None:
             "Feel free to ask me about darshan, sevas, festivals, temple history, "
             "accommodation, or travel to Tirumala."
         )
+
+    # 1b. Social / small-talk ("how are you", "what's up", etc.)
+    #     Must be checked BEFORE the semantic cache — these have zero Tirumala
+    #     relevance and would otherwise false-match temple answers at ~0.70 similarity.
+    q_stripped = re.sub(r"[^\w\s]", "", q).strip()  # strip punctuation for matching
+    if q_stripped in _SOCIAL_QUERIES or any(q_stripped.startswith(s) for s in _SOCIAL_QUERIES):
+        return (
+            f"{time_greeting}! I am Govinda, your Tirumala AI assistant. 🙏\n"
+            "I'm doing great and ready to help you!\n"
+            "You can ask me about darshan timings, sevas, festivals, temple history, "
+            "accommodation, or travel to Tirumala. What would you like to know?"
+        )
+
     # 2. Thanks
     if any(phrase in q for phrase in _THANKS):
         return (

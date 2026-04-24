@@ -83,22 +83,33 @@ class MultilingualTTS:
         """
         if not text.strip():
             return
+            
+        import re
+        # Remove emojis (common emoji blocks) so TTS doesn't read them aloud (e.g. "folded hands")
+        clean_text = re.sub(r'[\U00010000-\U0010ffff]', '', text)
+        # Also remove any specific stray symbols if needed, like the Om symbol
+        clean_text = clean_text.replace("🕉", "")
+        clean_text = clean_text.replace("🙏", "") # Just in case it's missed
+        
+        if not clean_text.strip():
+            return
+            
         lang = lang.lower()[:2]
-        logger.info("TTS speak [%s]: %s", lang, text[:60])
+        logger.info("TTS speak [%s]: %s", lang, clean_text[:60])
 
         # gTTS first for all languages (cross-platform, reliable)
         if USE_GTTS and lang in GTTS_LANG_MAP:
-            if self._speak_gtts(text, lang):
+            if self._speak_gtts(clean_text, lang):
                 return
 
         # English → try Coqui as upgrade if available
         if lang == "en" and USE_COQUI and self._coqui_model:
-            if self._speak_coqui(text):
+            if self._speak_coqui(clean_text):
                 return
 
         # Final fallback → pyttsx3 (offline, Windows SAPI)
         if USE_PYTTSX3 and self._pyttsx3_engine:
-            self._speak_pyttsx3(text)
+            self._speak_pyttsx3(clean_text)
 
     def speak_async(self, text: str, lang: str = "en"):
         """Non-blocking version of speak()."""

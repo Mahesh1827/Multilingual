@@ -99,7 +99,9 @@ def _validate_query_node(state: QueryState) -> dict:
     from query.agents.validation_agent import validate_and_correct, build_clarification_message
 
     q      = state["query_english"]
-    result = validate_and_correct(q)
+    lang   = state.get("language", "en")
+    original = state.get("user_input", q)
+    result = validate_and_correct(q, language=lang, original_text=original)
     status = result["status"]
 
     if status == "NEEDS_CORRECTION" and result["corrected_query"]:
@@ -127,6 +129,7 @@ def _validate_query_node(state: QueryState) -> dict:
         clarification = build_clarification_message(
             reason=result.get("reason", ""),
             suggestions=result.get("suggestions", []),
+            language=lang,
         )
         return {
             "validation_status": status,
@@ -155,8 +158,15 @@ def _prepare_query(state: QueryState) -> dict:
     query_english = _GREETING_PREFIX.sub("", query).strip() if query else query
 
     # Implicit Contextualization:
+    # Only contextualize factual-looking queries — never greetings/social phrases.
     context_words = ["tirumala", "tirupati", "venkateswara", "ttd", "balaji", "temple", "god", "swamy"]
-    if query_english and not any(word in query_english.lower() for word in context_words):
+    _social_stems = (
+        "how are you", "how r u", "how are u", "what's up", "whats up",
+        "good morning", "good afternoon", "good evening", "good night",
+        "are you there", "how do you do", "how is it going",
+    )
+    is_social = any(query_english.lower().startswith(s) for s in _social_stems)
+    if query_english and not any(word in query_english.lower() for word in context_words) and not is_social:
         query_english = f"{query_english} (in the context of Tirumala)"
         logger.info(f"Contextualized implicit query to: {query_english}")
 
@@ -177,12 +187,14 @@ def _prepare_query(state: QueryState) -> dict:
 # Keyword patterns for fast-path (no LLM call needed)
 _LIVE_PATTERNS = [
     # Forward order: temporal marker before weather/temperature
-    r"\b(current|today|now|live|right now|at the moment|latest)\b.*\b(weather|temp(?:erature)?|status|forecast|update)\b",
-    # Reverse order: temperature/weather before temporal marker (e.g. "What is the temperature now?")
-    r"\b(weather|temp(?:erature)?)\b.*\b(current|today|now|live|right now|at the moment|latest)\b",
-    # Standalone temperature — always a real-time query in Tirumala context
+    r"\b(current|today|tomorrow|now|live|right now|at the moment|latest)\b.*\b(weather|temp(?:erature)?|status|forecast|update)\b",
+    # Reverse order: temperature/weather before temporal marker
+    r"\b(weather|temp(?:erature)?|forecast)\b.*\b(current|today|tomorrow|now|live|right now|at the moment|latest)\b",
+    # Standalone weather keywords — always real-time in Tirumala context
     r"\btemp(?:erature)?\b",
-    r"\b(weather forecast|current weather|today.*weather|weather today)\b",
+    r"\bforecast\b",
+    r"\bweather\b",
+    r"\b(tomorrow'?s?)\s+(weather|forecast|temp(?:erature)?)\b",
 ]
 _GREETING_PATTERNS = [
     # Must be a standalone greeting — ends immediately after optional punctuation.
@@ -190,6 +202,11 @@ _GREETING_PATTERNS = [
     r"^(hi|hello|hey|namaste|good morning|good evening|howdy)[!.,\s]*$",
     r"^(thank you|thanks|thank u|dhanyavad|bye|goodbye)[!.,\s]*$",
     r"^(who are you|what can you do|help)[!?,\s]*$",
+    # Social / small-talk — "how are you", "what's up", etc.
+    r"^(how are you|how r u|how are u|how r you|how do you do)[!?,\s]*$",
+    r"^(how'?s it going|how is it going|what'?s up|whats up|wassup)[!?,\s]*$",
+    r"^(good (morning|afternoon|evening|night))[!.,\s]*$",
+    r"^(are you there|you there)[!?,\s]*$",
 ]
 
 # Factual fast-path: question patterns that are clearly informational
