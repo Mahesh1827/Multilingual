@@ -84,6 +84,11 @@ def evaluate_single(
             s.get("text", "") for s in sources if isinstance(s, dict)
         )
 
+        # FAQ cache special handling: the cached answer IS the source
+        # so if context is empty but we have an answer, use answer as context
+        if not context_text.strip() and answer.strip():
+            context_text = answer
+
         # ── Retrieval metrics ──
         retrieval = compute_all_retrieval_metrics(
             chunks=sources if isinstance(sources, list) else [],

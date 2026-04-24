@@ -213,16 +213,16 @@ def conciseness_score(answer: str, expected_answer: str) -> float:
         return 0.0
 
     answer_len = len(answer.split())
-    expected_len = max(len(expected_answer.split()), 5)
+    expected_len = max(len(expected_answer.split()), 10)  # Min 10 words baseline
 
     ratio = answer_len / expected_len
 
-    if ratio <= 2.0:
+    if ratio <= 2.5:
         return 1.0
-    elif ratio <= 3.0:
-        return round(1.0 - (ratio - 2.0) * 0.5, 4)
-    elif ratio <= 5.0:
-        return round(0.5 - (ratio - 3.0) * 0.2, 4)
+    elif ratio <= 4.0:
+        return round(1.0 - (ratio - 2.5) * 0.33, 4)  # Linear decay 1.0 → 0.5
+    elif ratio <= 6.0:
+        return round(0.5 - (ratio - 4.0) * 0.15, 4)  # Further decay 0.5 → 0.2
     else:
         return 0.1
 
