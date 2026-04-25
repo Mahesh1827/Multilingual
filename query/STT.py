@@ -14,6 +14,7 @@ Install dependencies:
     pip install faster-whisper sounddevice numpy lingua-language-detector
 """
 
+import re
 import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
@@ -223,6 +224,19 @@ def _correct_language(
         return "en", f"{whisper_lang} unsupported → fallback English"
 
     return whisper_lang, "no-correction"
+
+
+def _apply_english_asr_corrections(text: str) -> str:
+    """Fix common Whisper English mis-recognitions for Tirumala context."""
+    corrections = {
+        "kirmala": "Tirumala",
+        "thirumala": "Tirumala",
+        "tirupathi": "Tirupati",
+        "venkateshwara": "Venkateswara",
+    }
+    for wrong, right in corrections.items():
+        text = re.sub(rf'\b{wrong}\b', right, text, flags=re.IGNORECASE)
+    return text
 
 # ─────────────────────────────────────────────
 # CONFIG
