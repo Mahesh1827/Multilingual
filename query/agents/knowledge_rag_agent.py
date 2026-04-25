@@ -257,6 +257,20 @@ def _load_vectorstore_cached():
         logger.info("Qdrant vectorstore loaded")
     return _vectorstore_cache["vectorstore"]
 
+def _translate_to_english(query: str) -> str:
+    """Translate a non-English query to English for better retrieval."""
+    try:
+        from query.voice_pipeline import IndicTranslator
+        translator = IndicTranslator()
+        en_query = translator.indic_to_english(query, "en")
+        if en_query and en_query.strip() and en_query != query:
+            logger.info(f"Retriever: Translated query to English: {en_query[:80]}")
+            return en_query
+    except Exception as e:
+        logger.warning(f"English translation of query failed: {e}")
+    return query
+
+
 def retrieve(
     query: str,
     domains: list[str] | None = None,
@@ -278,32 +292,41 @@ def retrieve(
         )
         return []
 
-    # Multilingual model — no query prefix needed
-    search_k = top_k * 3
+    # Wider candidate pool for better recall after reranking
+    search_k = top_k * 4
 
-    # Multi-language query expansion
+    # Detect if query is non-English and translate to English
+    has_non_ascii = any(ord(c) > 127 for c in query)
+    english_query = _translate_to_english(query) if has_non_ascii else query
+
+    # Multi-language query expansion (all 4 Indic languages)
+    expanded_queries = [english_query]
+    if english_query != query:
+        expanded_queries.append(query)  # Also search with original non-English query
     try:
         from query.voice_pipeline import IndicTranslator
         translator = IndicTranslator()
-        expanded_queries = [query]
-        te_query = translator.english_to_indic(query, "te")
-        if te_query and te_query != query:
-            expanded_queries.append(te_query)
-        hi_query = translator.english_to_indic(query, "hi")
-        if hi_query and hi_query != query:
-            expanded_queries.append(hi_query)
+        for lang_code in ["te", "hi", "ta", "kn"]:
+            try:
+                indic_query = translator.english_to_indic(english_query, lang_code)
+                if indic_query and indic_query != english_query and indic_query not in expanded_queries:
+                    expanded_queries.append(indic_query)
+            except Exception:
+                pass
     except Exception as e:
         logger.warning(f"Query expansion failed: {e}")
-        expanded_queries = [query]
+
+    logger.info(f"Retriever: searching with {len(expanded_queries)} query variants")
 
     # Collect all candidates — NO language/domain filter
-    candidates_map = {}
+    # Keep the BEST score per chunk across all query variants
+    candidates_map: dict[str, dict] = {}
     for q in expanded_queries:
         results_with_scores = vectorstore.similarity_search_with_score(q, k=search_k)
         for doc, score in results_with_scores:
             meta = doc.metadata
             text = meta.get("text", doc.page_content)
-            if text not in candidates_map:
+            if text not in candidates_map or float(score) < candidates_map[text]["score"]:
                 candidates_map[text] = {
                     "score":    float(score),
                     "text":     text,
@@ -317,7 +340,8 @@ def retrieve(
         try:
             from ocr.vector_store import get_reranker
             reranker = get_reranker()
-            pairs = [(query, c["text"]) for c in candidates]
+            # Always rerank against the English version of the query
+            pairs = [(english_query, c["text"]) for c in candidates]
             rerank_scores = reranker.predict(pairs)
             
             # Attach reranker scores and sort
@@ -325,14 +349,15 @@ def retrieve(
                 c["rerank_score"] = float(rs)
             candidates.sort(key=lambda c: c["rerank_score"], reverse=True)
             
-            # Keep only top results with positive rerank score
-            candidates = [c for c in candidates if c.get("rerank_score", 0) > 0][:TOP_K_FINAL]
+            # Relaxed threshold: cross-encoder logits can be slightly negative
+            # for mildly relevant chunks — don't discard them
+            candidates = [c for c in candidates if c.get("rerank_score", 0) > -2.0][:TOP_K_FINAL]
             if not candidates:
-                # If reranker rejected everything, keep the best original candidate
+                # If reranker rejected everything, keep the best original candidates
                 candidates = sorted(
                     list(candidates_map.values()),
                     key=lambda x: x["score"]
-                )[:1]
+                )[:TOP_K_FINAL]
             
             score_strs = [str(round(c.get("rerank_score", 0), 3)) for c in candidates]
             logger.info(
@@ -382,33 +407,24 @@ def _build_system_prompt() -> str:
 
     return f"""You are {ASSISTANT_NAME}, a virtual assistant for Tirumala Tirupati Devasthanams (TTD).
 
-GREETING: Use "{time_greeting}" only when the user greets you first.
-
 🌐 LANGUAGE: Always respond in ENGLISH. The system translates afterward.
 
-📚 GROUNDING RULES (CRITICAL — READ CAREFULLY):
-1. Your ONLY source of truth is the CONTEXT provided below. This is non-negotiable.
-2. Every factual claim in your response MUST come directly from the context.
-3. Do NOT add ANY information from your own knowledge — even if you believe it to be true.
-4. If the context does not contain the answer, say EXACTLY:
-   "{GOVINDA_FALLBACK_ANSWER}"
-5. Do NOT estimate, guess, or infer timings, prices, or availability.
-6. Do NOT add background information, history, or significance unless explicitly asked.
+📚 GROUNDING RULES:
+1. Your ONLY source of truth is the CONTEXT below.
+2. If the context does not contain the answer, say: "{GOVINDA_FALLBACK_ANSWER}"
+3. Do NOT add information from your own knowledge.
+4. Do NOT estimate timings, prices, or availability.
 
-🎯 DOMAIN RESTRICTION:
-- Answer ONLY Tirumala-related questions (darshan, accommodation, laddu, history, sevas, festivals, travel, facilities).
-- For unrelated questions, say: "I can only help with Tirumala-related information. Jai Balaji 🙏"
+🎯 DOMAIN: Answer ONLY Tirumala-related questions. For unrelated questions, say: "I can only help with Tirumala-related information. Jai Balaji 🙏"
 
-✂️ RESPONSE FORMAT (STRICT):
-- Maximum 2-3 sentences. Absolute maximum 60 words.
-- Answer the specific question asked — nothing more, nothing less.
-- No introductory phrases like "Based on the context..." or "According to the documents..."
-- No closing phrases like "Is there anything else..." or "Feel free to ask..."
-- No meta-commentary about your rules or capabilities.
-- Use bullet points or steps ONLY for procedural questions (how-to, booking steps).
-- Start directly with the answer.
-
-🔄 FOLLOW-UP: If the user asks a follow-up, relate it to the previous query from chat history.
+✂️ RESPONSE FORMAT (CRITICAL — FOLLOW EXACTLY):
+- Reply in 1-2 sentences ONLY. Maximum 40 words total.
+- Give ONLY the direct factual answer. Nothing else.
+- NEVER start with greetings like "Jai Balaji" or "Namaste".
+- NEVER end with "Hari Om" or follow-up questions like "Would you like to know more?".
+- NEVER add phrases like "Based on the context" or "According to the documents".
+- NEVER add background information unless the user specifically asked for it.
+- Start your reply with the core fact immediately.
 """
 
 SYSTEM_PROMPT = _build_system_prompt()
@@ -424,17 +440,18 @@ def _get_llm():
             _llm = ChatGroq(
                 model=GROQ_MODEL,
                 api_key=GROQ_API_KEY,
-                temperature=0.3,
-                max_tokens=2048,
+                temperature=0.2,
+                max_tokens=200,
             )
             logger.info(f"LLM: Using Groq ({GROQ_MODEL})")
         else:
             _llm = ChatOllama(
                 model=OLLAMA_MODEL,
                 base_url=OLLAMA_BASE_URL,
-                temperature=0.3,
+                temperature=0.2,
                 top_p=0.9,
-                num_ctx=8192,
+                num_ctx=4096,
+                num_predict=200,
                 timeout=OLLAMA_TIMEOUT,
             )
             logger.info(f"LLM: Using Ollama ({OLLAMA_MODEL})")
@@ -526,9 +543,10 @@ def reason(
             local_llm = ChatOllama(
                 model=OLLAMA_MODEL,
                 base_url=OLLAMA_BASE_URL,
-                temperature=0.3,
+                temperature=0.2,
                 top_p=0.9,
-                num_ctx=8192,
+                num_ctx=4096,
+                num_predict=200,
                 timeout=OLLAMA_TIMEOUT,
             )
             chain = _PROMPT | local_llm | StrOutputParser()
@@ -543,16 +561,44 @@ def reason(
             logger.info(f"Reasoning Agent: Ollama fallback successful ({len(answer)} chars)")
             return answer
         except Exception as ollama_e:
-            logger.warning(f"Ollama fallback also failed: {ollama_e}. Returning raw direct chunk.")
+            logger.warning(f"Ollama fallback also failed: {ollama_e}. Returning concise chunk summary.")
 
-    best   = context_chunks[0]
-    source = best["metadata"].get("source_file", "source unknown")
-    page   = best["metadata"].get("page", "?")
-    return (
-        f"Based on the official Tirumala archives, here is the exact information I found:\n\n"
-        f"\"{best['text'].strip()}\"\n\n"
-        f"*(Source: {source}, page {page})*"
-    )
+    # Smart fallback: pick the most relevant sentence from the best chunk
+    # instead of blindly returning the first 2 sentences (which might be
+    # chapter headings or irrelevant content).
+    best = context_chunks[0]
+    text = best["text"].strip()
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text) if len(s.strip()) > 15]
+
+    if not sentences:
+        return GOVINDA_FALLBACK_ANSWER
+
+    # Try to find the sentence most similar to the query
+    try:
+        from sentence_transformers import SentenceTransformer
+        import numpy as np
+        _st_model = SentenceTransformer("intfloat/multilingual-e5-large")
+        q_emb = _st_model.encode([query], normalize_embeddings=True)[0]
+        s_embs = _st_model.encode(sentences[:10], normalize_embeddings=True)  # Max 10 sentences
+        sims = np.dot(s_embs, q_emb)
+        best_idx = int(np.argmax(sims))
+        summary = sentences[best_idx]
+        # Add the next sentence for context if available
+        if best_idx + 1 < len(sentences):
+            summary += " " + sentences[best_idx + 1]
+        summary = summary[:200].strip()
+    except Exception:
+        # Fallback: first 2 meaningful sentences
+        summary = " ".join(sentences[:2])[:150].strip()
+
+    if not summary.endswith("."):
+        last_period = summary.rfind(".")
+        if last_period > 20:
+            summary = summary[:last_period + 1]
+        else:
+            summary = summary.rsplit(" ", 1)[0] + "."
+
+    return summary
 
 def check_ollama_health() -> bool:
     """Quick health check: returns True if Ollama server is reachable."""

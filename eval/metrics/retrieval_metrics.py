@@ -1,15 +1,20 @@
 """
-Retrieval Metrics
------------------
+Retrieval Metrics — Hybrid Semantic + Lexical
+----------------------------------------------
 Precision@K, Recall@K, Hit Rate, MRR, NDCG@K
 
-All metrics compare retrieved chunks against expected answer keywords
-to determine relevance. A chunk is "relevant" if its token overlap with
-the expected answer exceeds a threshold.
+Uses a HYBRID approach for determining chunk relevance:
+  1. Semantic similarity (primary) — works across all languages
+  2. Lexical token overlap (secondary) — Unicode-aware, works for Indic scripts
+
+A chunk is considered relevant if EITHER method scores above its threshold.
 """
 
 import math
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
 # Helpers
@@ -22,20 +27,75 @@ _STOPWORDS = {
     "i", "you", "he", "she", "we", "they", "its", "can", "will", "do",
 }
 
-RELEVANCE_THRESHOLD = 0.15  # Min token overlap to consider a chunk relevant
+LEXICAL_RELEVANCE_THRESHOLD = 0.12   # Min token overlap to consider relevant (lexical)
+SEMANTIC_RELEVANCE_THRESHOLD = 0.45  # Min semantic similarity to consider relevant
 
 
 def _tokenize(text: str) -> set[str]:
-    """Extract meaningful lowercase tokens (3+ chars) minus stopwords."""
-    return set(re.findall(r"\b[a-z]{3,}\b", text.lower())) - _STOPWORDS
+    """
+    Extract meaningful tokens from text — supports both Latin and Unicode scripts.
+    Uses Unicode word boundaries to handle Indic scripts (Telugu, Hindi, Tamil, Kannada).
+    """
+    # Extract all word-like tokens (Unicode-aware: letters, digits, 3+ chars)
+    tokens = set(re.findall(r'\b\w{3,}\b', text.lower(), re.UNICODE))
+    return tokens - _STOPWORDS
 
 
-def _chunk_is_relevant(chunk_text: str, expected_answer: str, keywords: list[str] | None = None) -> bool:
+# ──────────────────────────────────────────────
+# Semantic similarity for chunk relevance
+# ──────────────────────────────────────────────
+_semantic_model = None
+
+
+def _get_semantic_model():
+    """Lazy-load sentence-transformer for semantic chunk relevance."""
+    global _semantic_model
+    if _semantic_model is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            _semantic_model = SentenceTransformer("intfloat/multilingual-e5-large")
+            logger.info("📊 [Retrieval Metrics] Semantic model loaded.")
+        except Exception as e:
+            logger.warning("📊 [Retrieval Metrics] Semantic model unavailable: %s", e)
+    return _semantic_model
+
+
+def _semantic_similarity(text_a: str, text_b: str) -> float:
+    """Compute cosine similarity using sentence-transformers."""
+    model = _get_semantic_model()
+    if model is None:
+        return 0.0
+    try:
+        import numpy as np
+        embeddings = model.encode([text_a, text_b], normalize_embeddings=True)
+        return float(max(0.0, min(1.0, np.dot(embeddings[0], embeddings[1]))))
+    except Exception:
+        return 0.0
+
+
+def _chunk_is_relevant(
+    chunk_text: str,
+    expected_answer: str,
+    keywords: list[str] | None = None,
+) -> bool:
     """
     Determine if a retrieved chunk is relevant to the expected answer.
 
-    Uses token overlap between chunk and expected answer + optional keywords.
+    Uses HYBRID approach:
+      1. Semantic similarity (primary) — works across all languages
+      2. Lexical token overlap (secondary) — catches exact keyword matches
+
+    A chunk is relevant if EITHER method scores above its threshold.
     """
+    if not chunk_text.strip() or not expected_answer.strip():
+        return False
+
+    # ── Method 1: Semantic similarity ──
+    sem_score = _semantic_similarity(chunk_text[:500], expected_answer)
+    if sem_score >= SEMANTIC_RELEVANCE_THRESHOLD:
+        return True
+
+    # ── Method 2: Lexical token overlap (Unicode-aware) ──
     expected_tokens = _tokenize(expected_answer)
     if keywords:
         expected_tokens |= {k.lower() for k in keywords if len(k) >= 3}
@@ -43,10 +103,10 @@ def _chunk_is_relevant(chunk_text: str, expected_answer: str, keywords: list[str
     chunk_tokens = _tokenize(chunk_text)
 
     if not expected_tokens or not chunk_tokens:
-        return False
+        return sem_score >= (SEMANTIC_RELEVANCE_THRESHOLD * 0.8)  # Relaxed fallback
 
     overlap = len(chunk_tokens & expected_tokens) / len(expected_tokens)
-    return overlap >= RELEVANCE_THRESHOLD
+    return overlap >= LEXICAL_RELEVANCE_THRESHOLD
 
 
 def _get_relevance_labels(

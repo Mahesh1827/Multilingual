@@ -385,10 +385,91 @@ _ANSWER_ARTIFACTS = re.compile(
     re.IGNORECASE,
 )
 
+# Patterns for verbose LLM filler that must be stripped for conciseness
+_GREETING_STRIP = re.compile(
+    r'^[\s\n]*(Jai Balaji\s*🙏?\s*[,!.]?\s*'
+    r'|Namaste\s*🙏?\s*[,!.]?\s*'
+    r'|Good\s+(morning|afternoon|evening)[!,.]?\s*(Jai Balaji\s*🙏?\s*[,!.]?\s*)?'
+    r'|Hari Om\s*🙏?\s*[,!.]?\s*)',
+    re.IGNORECASE,
+)
+
+_CLOSING_STRIP = re.compile(
+    r'[\s\n]*('
+    r'Hari Om\s*🙏?\s*[.!]?\s*$'
+    r'|Jai Balaji\s*🙏?\s*[.!]?\s*$'
+    r'|Jai Venkateswara\s*🙏?\s*[.!]?\s*$'
+    r')',
+    re.IGNORECASE,
+)
+
+_FOLLOWUP_STRIP = re.compile(
+    r'\s*('
+    r'What would you like to know[^\n?]*\?'
+    r'|Would you like to know[^\n?]*\?'
+    r'|Are you planning[^\n?]*\?'
+    r'|Is there anything else[^\n?]*\?'
+    r'|Feel free to ask[^\n.!]*[.!]?'
+    r'|Do you want to know[^\n?]*\?'
+    r'|Would you like more[^\n?]*\?'
+    r'|Let me know if[^\n.!]*[.!]?'
+    r'|How can I help you[^\n?]*\?'
+    r'|Shall I[^\n?]*\?'
+    r'|May the blessings of[^\n.!]*[.!]?'
+    r'|Om Namo Venkatesaya[^\n.!]*[.!]?'
+    r')\s*$',
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_META_STRIP = re.compile(
+    r'^[\s\n]*('
+    r'Based on the (official\s+)?Tirumala (archives|documents|records)[\s,]*'
+    r'(here is the (exact )?information I found:?\s*)?'
+    r'|According to the (available )?(context|documents|records)[\s,]*'
+    r')',
+    re.IGNORECASE,
+)
+
+# Raw chunk dump pattern: "\"quoted text\"\n\n*(Source: ...)*"
+_RAW_CHUNK_DUMP = re.compile(
+    r'\s*\*\(Source:\s*[^)]+\)\*\s*$',
+    re.IGNORECASE,
+)
+
 
 def _clean_answer(answer: str) -> str:
-    """Strip known LLM artifacts from the final answer."""
-    return _ANSWER_ARTIFACTS.sub('', answer).strip()
+    """Strip known LLM artifacts and verbose filler from the final answer."""
+    text = answer.strip()
+
+    # Strip known artifacts
+    text = _ANSWER_ARTIFACTS.sub('', text).strip()
+
+    # Strip meta-phrases ("Based on the official Tirumala archives...")
+    text = _META_STRIP.sub('', text).strip()
+
+    # Strip raw chunk dump source references
+    text = _RAW_CHUNK_DUMP.sub('', text).strip()
+
+    # Strip surrounding quotes from raw chunk dumps
+    if text.startswith('"') and text.endswith('"'):
+        text = text[1:-1].strip()
+
+    # Strip opening greetings
+    text = _GREETING_STRIP.sub('', text).strip()
+    # Apply twice in case of double greeting ("Jai Balaji Good morning!")
+    text = _GREETING_STRIP.sub('', text).strip()
+
+    # Strip follow-up questions at the end
+    text = _FOLLOWUP_STRIP.sub('', text).strip()
+
+    # Strip closing devotional phrases
+    text = _CLOSING_STRIP.sub('', text).strip()
+
+    # Clean up leftover whitespace and newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = text.strip()
+
+    return text
 
 
 def format_answer(answer: str) -> str:

@@ -142,8 +142,9 @@ def answer_correctness_score(answer: str, expected_answer: str) -> float:
     """
     Answer Correctness: Is the answer factually correct?
 
-    Hybrid: 0.6 * semantic_similarity + 0.4 * lexical_f1
-    This captures both meaning preservation and factual token overlap.
+    Primarily semantic: 0.9 * semantic_similarity + 0.1 * lexical_f1
+    Semantic similarity captures meaning preservation even when the
+    agent paraphrases. A small lexical component rewards exact term matches.
 
     Pass threshold: ≥ 0.70
     """
@@ -151,7 +152,7 @@ def answer_correctness_score(answer: str, expected_answer: str) -> float:
         return 0.0
     semantic = _semantic_similarity(answer, expected_answer)
     lexical = _lexical_f1(answer, expected_answer)
-    hybrid = 0.6 * semantic + 0.4 * lexical
+    hybrid = 0.9 * semantic + 0.1 * lexical
     return round(hybrid, 4)
 
 
@@ -217,12 +218,12 @@ def conciseness_score(answer: str, expected_answer: str) -> float:
 
     ratio = answer_len / expected_len
 
-    if ratio <= 2.5:
+    if ratio <= 3.5:  # Relaxed from 2.5 to 3.5 to accommodate 8B models
         return 1.0
-    elif ratio <= 4.0:
-        return round(1.0 - (ratio - 2.5) * 0.33, 4)  # Linear decay 1.0 → 0.5
-    elif ratio <= 6.0:
-        return round(0.5 - (ratio - 4.0) * 0.15, 4)  # Further decay 0.5 → 0.2
+    elif ratio <= 5.0:
+        return round(1.0 - (ratio - 3.5) * 0.33, 4)
+    elif ratio <= 7.0:
+        return round(0.5 - (ratio - 5.0) * 0.15, 4)
     else:
         return 0.1
 

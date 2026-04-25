@@ -129,6 +129,17 @@ _FAILURE_PHRASES = [
     "i don't have that",
     "specific detail right now",
     "not fully supported by",
+    # Concise-fallback raw chunk dumps (no LLM synthesis)
+    "chapter ii",
+    "chapter i",
+    "physical features",
+    "om shanti",
+    "i'm assuming you",
+    "without more context",
+    "could you please provide more information",
+    "please clarify",
+    "not fully answer your question",
+    "may not be fully supported",
 ]
 
 # Noise words to strip from queries before matching
@@ -403,39 +414,81 @@ def lookup_cache(question: str, language: str = "en") -> tuple[str | None, float
             best_method = "fuzzy"
 
     # ── Confidence gating ──
-    # Before accepting, verify the INTENT of the query matches the cached question.
-    # This prevents "dress code to visit Tirumala" from matching "where is Tirumala"
-    # just because both mention "Tirumala".
+    # Production-grade verification: three checks before accepting a cache hit.
     if best_score >= _SEMANTIC_MEDIUM and best_idx >= 0:
-        # Extract intent-carrying words (strip common noise + location names)
-        _intent_noise = _NOISE_WORDS | _LOCATIONS | {"how", "where", "when", "do", "does", "did", "are", "was", "were", "to", "for", "and", "or", "it", "its", "i", "my", "we", "our", "visit", "go", "know", "want", "need"}
+        cached_entry = cache[best_idx]
+        cached_q_text = cached_entry.get("question", "")
+
+        # ── CHECK 1: Intent word overlap ──
+        # Strip noise/locations to isolate what the user is actually asking about.
+        _intent_noise = _NOISE_WORDS | _LOCATIONS | {
+            "how", "where", "when", "do", "does", "did", "are", "was", "were",
+            "to", "for", "and", "or", "it", "its", "i", "my", "we", "our",
+            "visit", "go", "know", "want", "need", "those", "these", "that",
+            "this", "which", "them", "they",
+        }
         q_intent_words = {w for w in normalized_q.split() if w not in _intent_noise and len(w) > 2}
-        cached_q_norm = _normalize_query(cache[best_idx].get("question", ""))
+        cached_q_norm = _normalize_query(cached_q_text)
         c_intent_words = {w for w in cached_q_norm.split() if w not in _intent_noise and len(w) > 2}
 
-        # If both queries have intent words but ZERO overlap, the match is a false positive
+        # If both queries have intent words but ZERO overlap, it's a false positive
         if q_intent_words and c_intent_words and not (q_intent_words & c_intent_words):
-            # Only reject if score is below HIGH threshold (very high scores are likely genuine)
             if best_score < _SEMANTIC_HIGH:
                 logger.info(
-                    "📋 [FAQ Cache] REJECTED false-positive: score=%.3f but intent mismatch. "
+                    "📋 [FAQ Cache] REJECTED (intent mismatch): score=%.3f, "
                     "query_intent=%s vs cached_intent=%s",
                     best_score, q_intent_words, c_intent_words,
                 )
                 return None, best_score
-        # Increment hit counter
-        cache[best_idx]["hit_count"] = cache[best_idx].get("hit_count", 0) + 1
-        cache[best_idx]["last_accessed"] = datetime.now().isoformat()
+
+        # ── CHECK 2: Answer-question relevance ──
+        # The cached ANSWER must actually address the NEW question.
+        # This catches cases where the question similarity is high
+        # but the answer is for a different sub-topic.
+        if best_score < _SEMANTIC_HIGH and best_answer:
+            try:
+                new_q_emb = query_embedding
+                ans_emb = _embed_text(best_answer[:400])
+                if new_q_emb is not None and ans_emb is not None:
+                    answer_relevance = _cosine_similarity(new_q_emb, ans_emb)
+                    if answer_relevance < 0.50:
+                        logger.info(
+                            "📋 [FAQ Cache] REJECTED (answer doesn't address question): "
+                            "q_vs_cached_q=%.3f, q_vs_cached_answer=%.3f",
+                            best_score, answer_relevance,
+                        )
+                        return None, best_score
+            except Exception:
+                pass  # On error, proceed with the match
+
+        # ── CHECK 3: Question type mismatch ──
+        # "What are X?" vs "Where is X?" are fundamentally different question types.
+        _q_type_words = {"what", "where", "when", "how", "who", "why", "which"}
+        q_type = {w for w in question.lower().split()[:3] if w in _q_type_words}
+        c_type = {w for w in cached_q_text.lower().split()[:3] if w in _q_type_words}
+        if q_type and c_type and q_type != c_type:
+            # Different question types — only allow if similarity is very high
+            if best_score < _SEMANTIC_HIGH:
+                logger.info(
+                    "📋 [FAQ Cache] REJECTED (question type mismatch): "
+                    "q_type=%s vs cached_type=%s, score=%.3f",
+                    q_type, c_type, best_score,
+                )
+                return None, best_score
+
+        # ── All checks passed — accept the cache hit ──
+        cached_entry["hit_count"] = cached_entry.get("hit_count", 0) + 1
+        cached_entry["last_accessed"] = datetime.now().isoformat()
         _save_cache(cache)
 
-        hit_count = cache[best_idx]["hit_count"]
+        hit_count = cached_entry["hit_count"]
         logger.info(
             "📋 [FAQ Cache] Hit! method=%s, score=%.3f, hit_count=%d, q=%r",
-            best_method, best_score, hit_count, cache[best_idx]["question"][:60],
+            best_method, best_score, hit_count, cached_q_text[:60],
         )
 
         # ── Translate cached English answer to user's language at retrieval time ──
-        cached_lang = cache[best_idx].get("language", "en")
+        cached_lang = cached_entry.get("language", "en")
         if language != "en" and cached_lang != language:
             try:
                 from query.voice_pipeline import IndicTranslator
@@ -487,6 +540,28 @@ def save_to_cache(question: str, answer: str, language: str = "en") -> None:
     if any(phrase in ans_lower for phrase in _FAILURE_PHRASES):
         logger.info("📋 [FAQ Cache] BLOCKED: Refusing to cache a fallback/failure response.")
         return
+
+    # SAFEGUARD: Do not cache if the question is too short / gibberish
+    q_words = [w for w in question.strip().split() if len(w) >= 2]
+    if len(q_words) < 3:
+        logger.info("📋 [FAQ Cache] BLOCKED: Query too short (%d words) — not caching.", len(q_words))
+        return
+
+    # SAFEGUARD: Do not cache answers that don't semantically match the question
+    # This prevents raw chunk dumps (from concise fallback) from polluting the cache
+    try:
+        q_emb = _embed_text(question)
+        a_emb = _embed_text(answer[:300])  # First 300 chars of answer
+        if q_emb is not None and a_emb is not None:
+            qa_sim = _cosine_similarity(q_emb, a_emb)
+            if qa_sim < 0.35:
+                logger.info(
+                    "📋 [FAQ Cache] BLOCKED: Answer doesn't match question (sim=%.3f < 0.35).",
+                    qa_sim,
+                )
+                return
+    except Exception:
+        pass  # If embedding check fails, still allow caching
 
     # SAFEGUARD: Do not cache non-English text when language tag is "en".
     # This prevents romanized Hindi/Telugu answers from polluting the cache
