@@ -159,6 +159,14 @@ Multilingual/
 │   ├── Hindi/
 │   └── Tamil/
 │
+├── eval/                       # Production Evaluation Framework
+│   ├── run_eval.py             # Main script to execute evaluation
+│   ├── judge.py                # LLM-as-a-Judge for response quality
+│   ├── eval_logger.py          # Structured evaluation logging
+│   ├── golden_dataset.json     # Curated benchmark dataset
+│   ├── metrics/                # Retrieval & generation metric calculators
+│   └── quick_test.py           # Rapid testing script
+│
 ├── ocr/                        # Document Processing Pipeline
 │   ├── config.py               # OCR/embedding/DB configuration
 │   ├── pipeline.py             # Main OCR orchestrator
@@ -169,16 +177,26 @@ Multilingual/
 │
 ├── query/                      # Query & Answer Pipeline
 │   ├── config.py               # LLM / retrieval configuration
+│   ├── logging_config.py       # Pipeline logging configuration
+│   ├── phonetic_corrector.py   # Intelligent voice input correction
+│   ├── protected_terms.py      # TTD-specific terminology mappings
 │   ├── agents/
 │   │   ├── pipeline.py         # LangGraph orchestrator (main entry point)
 │   │   ├── knowledge_rag_agent.py  # Core RAG: retrieve → reason → verify
 │   │   ├── faq_agent.py        # Fast FAQ cache lookup
 │   │   ├── web_agent.py        # Tavily web search fallback
 │   │   ├── router_agent.py     # Domain classifier
-│   │   └── validation_agent.py # Input validation & correction
+│   │   ├── validation_agent.py # Input validation & correction
+│   │   └── error_handling.py   # Exception management and fallback strategies
 │   ├── voice_pipeline.py       # Whisper STT + TTS + IndicTrans
 │   ├── STT.py                  # Language detection utilities
 │   └── TTS.py                  # Text-to-speech
+│
+├── tests/                      # Automated Testing Suite
+│   ├── conftest.py             # Pytest fixtures and configuration
+│   ├── test_health.py          # API health check tests
+│   ├── test_language_detection.py # Multilingual detection tests
+│   └── test_rag_pipeline.py    # End-to-end integration tests
 │
 ├── vector_store/
 │   └── metadata.json           # Chunk metadata index (40k entries)
